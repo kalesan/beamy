@@ -82,6 +82,39 @@ def rate(H, M, N0, C=None, E=None):
 
     for k in range(K):
         for b in range(B):
-            R[k,b] = -np.real(np.log2(np.linalg.det(E[:, :, k, b])))
+            R[k, b] = -np.real(np.log2(np.linalg.det(E[:, :, k, b])))
 
     return R
+
+
+def weighted_bisection(H, U, W, N0, threshold=1e-6):
+    (Nr, Nt, K, B) = H.shape
+    (Nr, Nsk, K, B) = U.shape
+
+    # Weighted transmit covariance matrices
+    C = np.zeros((Nt, Nt, B))
+
+    for b in range(B):
+        for i in range(B):
+            for j in range(K):
+                T = np.dot(np.dot(U[:, :, j, i], W[:, :, j, i]),
+                           U[:, :, j, i].conj().T)
+
+                C[:, :, b] += np.dot(np.dot(H[:, :, j, b].conj().T, T),
+                                     H[:, :, j, b])
+
+    for b in range(B):
+        UB = 10
+        lb = 0
+
+        M0 = np.zeros((Nr, Nsk, K))
+
+        while np.abs(UB - lb) > threshold:
+            v = (UB + lb) / 2
+
+            for k in range(K):
+                T = np.dot(np.dot(H[:, :, k, b], U[:, :, k, b].conj().T),
+                           W[:, :, k, b])
+
+                M0[:, :, k] = np.dot(np.linalg.pinv(C[:, :, b] + np.eye(Nt)*v),
+                                     T)
