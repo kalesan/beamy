@@ -16,12 +16,13 @@ class Simulator(object):
     simulation environments and run the simulations. """
 
     def __init__(self, prec, **kwargs):
-
         self.chanmod = kwargs.get('channel_model', chanmod.GaussianModel())
         self.sysparams = kwargs.get('sysparams', (2, 4, 10, 3))
 
         self.iterations = {'channel': kwargs.get('realizations', 20),
                            'beamformer': kwargs.get('biterations', 50)}
+
+        self.seed = kwargs.get('seed', 1841)
 
         self.resfile = kwargs.get('resfile', 'res.npz')
 
@@ -76,10 +77,14 @@ class Simulator(object):
 
         logger = logging.getLogger(__name__)
 
+        # Initialize the random number generator
+        np.random.seed(self.seed)
+
         rate = np.zeros((self.iterations['beamformer'], 1))
 
         for rel in range(self.iterations['channel']):
-            logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
+            logger.info("Realization %d/%d", rel+1,
+                        self.iterations['channel'])
 
             chan = self.chanmod.generate(self.sysparams)
 
