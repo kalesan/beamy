@@ -65,7 +65,7 @@ class PrecoderWMMSE(Precoder):
 
         for _ue in range(self.n_ue):
             for _bs in range(self.n_bs):
-                weight[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])
+                weight[:, :, _ue, _bs] = np.linalg.inv(errm[:, :, _ue, _bs])
 
         return utils.weighted_bisection(chan, recv, weight, pwr_lim,
                                         threshold=1e-12)
