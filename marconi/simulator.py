@@ -1,6 +1,10 @@
+""" This is the top-level simulator module. The module consists of the the
+Simulator class that is used to run the simulations for given environment and
+precoder design. """
+
 import logging
 
-# import numpy as np
+import numpy as np
 
 import utils
 import chanmod
@@ -8,79 +12,98 @@ import precoder
 
 
 class Simulator(object):
-    def __init__(self, prec, Nt=4, Nr=2, K=2, B=2, SNR=20, realizations=20,
-                 biterations=50, channel_model=chanmod.GaussianModel()):
+    """ This is the top-level simulator class, which is used to define the
+    simulation environments and run the simulations. """
 
-        self.logger = logging.getLogger(__name__)
+    def __init__(self, prec, **kwargs):
 
-        self.chanmod = channel_model
+        self.chanmod = kwargs.get('channel_model', chanmod.GaussianModel())
+        self.sysparams = kwargs.get('sysparams', (2, 4, 10, 3))
 
-        self.Nr = Nr
-        self.Nt = Nt
-        self.K = K
-        self.B = B
+        self.iterations = {'channel': kwargs.get('realizations', 20),
+                           'beamformer': kwargs.get('biterations', 50)}
 
-        self.realizations = realizations
+        self.resfile = kwargs.get('resfile', 'res.npz')
 
-        self.biterations = biterations
-
-        self.P = 1
-        self.N0 = 10**-(SNR/10)
-
-        self.Nsk = min(Nr, Nt)
+        self.pwr_lim = 1
+        self.noise_pwr = 10**-(kwargs.get('SNR', 20)/10)
 
         if prec is None:
-            self.prec = precoder.PrecoderGaussian(Nr, Nt, K, B, self.P, self.N0)
+            self.prec = precoder.PrecoderGaussian(self.sysparams)
+        else:
+            self.prec = prec
 
-    def iterate_beamformers(self, H):
-        (Nr, Nt, K, B, P, N0) = (self.Nr, self.Nt, self.K, self.B, self.P,
-                                 self.N0)
+    def iterate_beamformers(self, chan):
+        """ Iteratively generate the receive and transmit beaformers for the
+        given channel matrix. """
+
+        logger = logging.getLogger(__name__)
+
+        n_bs = chan.shape[3]
 
         # Initialize beamformers
-        rprec = precoder.PrecoderGaussian(Nr, Nt, K, B, P, N0)
-        M = rprec.generate()
+        rprec = precoder.PrecoderGaussian(self.sysparams)
+        prec = rprec.generate(pwr_lim=self.pwr_lim)
 
-        for iter in range(self.biterations):
-            self.logger.info("Iteration %d/%d" % (iter+1, self.biterations))
+        recv = utils.lmmse(chan, prec, self.noise_pwr)
 
-            pwr = (M[:]*M[:].conj()).sum()
+        rate = np.zeros((self.iterations['beamformer'], 1))
 
-            M = self.prec.generate()
+        for ind in range(self.iterations['beamformer']):
+            logger.info("Iteration %d/%d", ind+1, self.iterations['beamformer'])
 
-            C = utils.sigcov(H, M, N0)
+            pwr = np.real(prec[:]*prec[:].conj()).sum()
 
-            U = utils.lmmse(H, M, N0, C=C)
+            prec = self.prec.generate(chan, recv, prec, self.noise_pwr,
+                                      pwr_lim=self.pwr_lim)
 
-            E = utils.mse(H, U, M, N0, C=C)
+            cov = utils.sigcov(chan, prec, self.noise_pwr)
 
-            R = utils.rate(H, M, N0, E=E)
+            recv = utils.lmmse(chan, prec, self.noise_pwr, cov=cov)
 
-            self.logger.info("Rate: %.2f Power: %.2f%%" %
-                             (R[:].sum()/B, 100*(pwr/(B*P))))
+            errm = utils.mse(chan, recv, prec, self.noise_pwr, cov=cov)
+
+            rate[ind] = (utils.rate(chan, prec, self.noise_pwr,
+                                    errm=errm)[:]).sum() / n_bs
+
+            logger.info("Rate: %.2f Power: %.2f%%", rate[ind][0],
+                        100*(pwr/(n_bs*self.pwr_lim)))
+
+        return rate
 
     def run(self):
-        for rel in range(self.realizations):
-            self.logger.info("Realization %d/%d" % (rel+1, self.realizations))
+        """ Run the simulator setup. """
 
-            H = self.chanmod.generate(self.Nr, self.Nt, self.K, self.B)
+        logger = logging.getLogger(__name__)
 
-            self.iterate_beamformers(H)
+        rate = np.zeros((self.iterations['beamformer'], 1))
+
+        for rel in range(self.iterations['channel']):
+            logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
+
+            chan = self.chanmod.generate(self.sysparams)
+
+            rate += self.iterate_beamformers(chan)
+
+            np.savez(self.resfile, R=rate/(rel+1))
 
 if __name__ == "__main__":
-    sim = Simulator(None)
+    SPARAMS = (2, 8, 4, 1)
 
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    SIM = Simulator(precoder.PrecoderSDP(SPARAMS), sysparams=SPARAMS)
 
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
+    LOGGER = logging.getLogger()
+    LOGGER.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter("%(levelname)s - %(module)s - %(message)s")
-    handler.setFormatter(formatter)
+    HANDLER = logging.StreamHandler()
+    HANDLER.setLevel(logging.DEBUG)
 
-    while (len(logger.handlers) > 0):
-        logger.handlers.pop()
+    FORMATTER = logging.Formatter("%(levelname)s - %(module)s - %(message)s")
+    HANDLER.setFormatter(FORMATTER)
 
-    logger.addHandler(handler)
+    while len(LOGGER.handlers) > 0:
+        LOGGER.handlers.pop()
 
-    sim.run()
+    LOGGER.addHandler(HANDLER)
+
+    SIM.run()

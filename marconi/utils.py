@@ -1,120 +1,176 @@
+""" This is a utility function module consisting of help functions that can be
+used to compute varying signal properties. """
+
+import itertools
+
 import numpy as np
 
 
-def sigcov(H, M, N0):
-    (Nr, Nt, K, B) = H.shape
-    (Nt, Nsk, K, B) = M.shape
+def sigcov(chan, prec, noise_pwr):
+    """ Signal received covariance for given set of precoders. """
 
-    C = np.zeros((Nr, Nr, K), dtype='complex')
+    (n_rx, n_tx, n_ue, n_bs) = chan.shape
+    (n_tx, n_sk, n_ue, n_bs) = prec.shape
 
-    M0 = np.reshape(M, [Nt, Nsk*K, B])
+    cov = np.zeros((n_rx, n_rx, n_ue), dtype='complex')
 
-    for k in range(K):
-        C[:, :, k] = np.eye(Nr)*N0
+    # Concatenated precoders
+    prec_cat = np.reshape(prec, [n_tx, n_sk*n_ue, n_bs])
 
-        for b in range(B):
-            T = np.dot(H[:, :, k, b], M0[:, :, b])
-            C[:, :, k] += np.dot(T, T.conj().transpose())
+    # Generate the covariance matrices
+    for _ue in range(n_ue):
+        cov[:, :, _ue] = np.eye(n_rx)*noise_pwr
 
-    return C
+        for _bs in range(n_bs):
+            _pc = np.dot(chan[:, :, _ue, _bs], prec_cat[:, :, _bs])
+            cov[:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
 
-
-def lmmse(H, M, N0, C=None):
-    (Nr, Nt, K, B) = H.shape
-    (Nt, Nsk, K, B) = M.shape
-
-    U = np.zeros((Nr, Nsk, K, B), dtype='complex')
-
-    # Signal covariance matrix
-    if C is None:
-        C = sigcov(H, M, N0)
-
-    for k in range(K):
-        for b in range(B):
-            U[:, :, k, b] = np.dot(np.linalg.pinv(C[:, :, k]),
-                                   np.dot(H[:, :, k, b], M[:, :, k, b]))
-
-    return U
+    return cov
 
 
-def mse(H, U, M, N0, C=None):
-    (Nr, Nt, K, B) = H.shape
-    (Nt, Nsk, K, B) = M.shape
+def lmmse(chan, prec, noise_pwr, cov=None):
+    """ Generate linear MMSE receive beamformers. """
 
-    E = np.zeros((Nsk, Nsk, K, B), dtype='complex')
+    n_rx = chan.shape[0]
+    (n_sk, n_ue, n_bs) = prec.shape[1:]
 
-    M0 = np.reshape(M, [Nt, Nsk*K, B])
+    recv = np.zeros((n_rx, n_sk, n_ue, n_bs), dtype='complex')
 
     # Signal covariance matrix
-    if C is None:
-        C = sigcov(H, M, N0)
+    if cov is None:
+        cov = sigcov(chan, prec, noise_pwr)
 
-    for k in range(K):
-        for b in range(B):
-            T = np.dot(U[:, :, k, b].conj().T,
-                       np.dot(H[:, :, k, b], M[:, :, k, b]))
+    for _ue in range(n_ue):
+        for _bs in range(n_bs):
+            recv[:, :, _ue, _bs] = np.dot(np.linalg.pinv(cov[:, :, _ue]),
+                                          np.dot(chan[:, :, _ue, _bs],
+                                                 prec[:, :, _ue, _bs]))
 
-            E[:, :, k, b] = np.eye(Nsk) - 2*np.real(T)
-            E[:, :, k, b] += N0 * np.dot(U[:, :, k, b].conj().T, U[:, :, k, b])
-
-            for i in range(B):
-                T = np.dot(U[:, :, k, b].conj().T,
-                           np.dot(H[:, :, k, i], M0[:, :, i]))
-
-                E[:, :, k, b] += np.dot(T, T.conj().T)
-    return E
+    return recv
 
 
-def rate(H, M, N0, C=None, E=None):
-    (Nr, Nt, K, B) = H.shape
-    (Nt, Nsk, K, B) = M.shape
+def mse(chan, recv, prec, noise_pwr, cov=None):
+    """ Compute the user specific mean-squared error matrices. """
+
+    (n_tx, n_ue, n_bs) = chan.shape[1:]
+    (n_tx, n_sk, n_ue, n_bs) = prec.shape
+
+    errm = np.zeros((n_sk, n_sk, n_ue, n_bs), dtype='complex')
+
+    prec_cat = np.reshape(prec, [n_tx, n_sk*n_ue, n_bs])
 
     # Signal covariance matrix
-    if C is None:
-        C = sigcov(H, M, N0)
+    if cov is None:
+        cov = sigcov(chan, prec, noise_pwr)
 
-    U = lmmse(H, M, N0, C=C)
+    for _ue in range(n_ue):
+        for _bs in range(n_bs):
+            _tmp = np.dot(recv[:, :, _ue, _bs].conj().T,
+                          np.dot(chan[:, :, _ue, _bs], prec[:, :, _ue, _bs]))
 
-    if E is None:
-        E = mse(H, U, M, N0, C=C)
+            errm[:, :, _ue, _bs] = np.eye(n_sk) - 2*np.real(_tmp)
+            errm[:, :, _ue, _bs] += noise_pwr * \
+                np.dot(recv[:, :, _ue, _bs].conj().T, recv[:, :, _ue, _bs])
 
-    R = np.zeros((K, B))
+            for _int_bs in range(n_bs):
+                _tmp = np.dot(recv[:, :, _ue, _bs].conj().T,
+                              np.dot(chan[:, :, _ue, _int_bs],
+                                     prec_cat[:, :, _int_bs]))
 
-    for k in range(K):
-        for b in range(B):
-            R[k, b] = -np.real(np.log2(np.linalg.det(E[:, :, k, b])))
+                errm[:, :, _ue, _bs] += np.dot(_tmp, _tmp.conj().T)
 
-    return R
+    return errm
 
 
-def weighted_bisection(H, U, W, N0, threshold=1e-6):
-    (Nr, Nt, K, B) = H.shape
-    (Nr, Nsk, K, B) = U.shape
+def rate(chan, prec, noise_pwr, cov=None, errm=None):
+    """ Compute the user/BS pair specific rates.
+
+        The rate is computed via the corresponding MSE assuming LMMSE receive
+        beamformers.
+    """
+
+    (n_ue, n_bs) = chan.shape[2:]
+
+    # Signal covariance matrix
+    if cov is None:
+        cov = sigcov(chan, prec, noise_pwr)
+
+    recv = lmmse(chan, prec, noise_pwr, cov=cov)
+
+    if errm is None:
+        errm = mse(chan, recv, prec, noise_pwr, cov=cov)
+
+    rates = np.zeros((n_ue, n_bs))
+
+    for _ue in range(n_ue):
+        for _bs in range(n_bs):
+            _tmp = -np.log2(np.linalg.det(errm[:, :, _ue, _bs]))
+            rates[_ue, _bs] = np.real(_tmp)
+
+    return rates
+
+
+def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
+    """ Utilize the weighted bisection algorithm to solve the weighted MSE
+        minimizing transmit beamformers subject to given per-BS sum power
+        constraint. """
+
+    # System configuration
+    cfg = {'TX': chan.shape[1], 'UE': chan.shape[2], 'BS': chan.shape[3],
+           'SK': recv.shape[1]}
+
+    # The final precoders
+    prec = np.zeros((cfg['TX'], cfg['SK']*cfg['UE'], cfg['BS']),
+                    dtype='complex')
 
     # Weighted transmit covariance matrices
-    C = np.zeros((Nt, Nt, B))
+    wcov = np.zeros((cfg['TX'], cfg['TX'], cfg['BS']), dtype='complex')
 
-    for b in range(B):
-        for i in range(B):
-            for j in range(K):
-                T = np.dot(np.dot(U[:, :, j, i], W[:, :, j, i]),
-                           U[:, :, j, i].conj().T)
+    for (_bs, _int_bs, _ue) in itertools.product(range(cfg['BS']),
+                                                 range(cfg['BS']),
+                                                 range(cfg['UE'])):
 
-                C[:, :, b] += np.dot(np.dot(H[:, :, j, b].conj().T, T),
-                                     H[:, :, j, b])
+        _tmp = np.dot(np.dot(recv[:, :, _ue, _int_bs],
+                             weights[:, :, _ue, _int_bs]),
+                      recv[:, :, _ue, _int_bs].conj().T)
 
-    for b in range(B):
-        UB = 10
-        lb = 0
+        wcov[:, :, _bs] += np.dot(np.dot(chan[:, :, _ue, _bs].conj().T,
+                                         _tmp), chan[:, :, _ue, _bs])
 
-        M0 = np.zeros((Nr, Nsk, K))
+    # Effective downlink channels
+    wchan = np.zeros((cfg['TX'], cfg['SK'], cfg['UE'], cfg['BS']),
+                     dtype='complex')
 
-        while np.abs(UB - lb) > threshold:
-            v = (UB + lb) / 2
+    for (_ue, _bs) in itertools.product(range(cfg['UE']), range(cfg['BS'])):
+        wchan[:, :, _ue, _bs] = np.dot(np.dot(chan[:, :, _ue, _bs].conj().T,
+                                              recv[:, :, _ue, _bs]),
+                                       weights[:, :, _ue, _bs])
 
-            for k in range(K):
-                T = np.dot(np.dot(H[:, :, k, b], U[:, :, k, b].conj().T),
-                           W[:, :, k, b])
+    wchan = np.reshape(wchan, [cfg['TX'], cfg['SK']*cfg['UE'], cfg['BS']])
 
-                M0[:, :, k] = np.dot(np.linalg.pinv(C[:, :, b] + np.eye(Nt)*v),
-                                     T)
+    # Perform the power bisection for each BS separately
+    for _bs in range(cfg['BS']):
+        prec[:, :, _bs] = np.linalg.solve((wcov[:, :, _bs]), wchan[:, :, _bs])
+
+        if np.linalg.norm(prec[:, :, _bs][:]) <= np.sqrt(pwr_lim):
+            continue
+
+        bounds = np.array([0, 10.])
+
+        while np.abs(bounds[0] - bounds[1]) > threshold:
+            lvl = (bounds.sum()) / 2
+
+            prec[:, :, _bs] = np.linalg.solve((wcov[:, :, _bs] +
+                                               np.eye(cfg['TX'])*lvl),
+                                              wchan[:, :, _bs])
+
+            if np.linalg.norm(prec[:, :, _bs][:]) < np.sqrt(pwr_lim):
+                bounds[1] = lvl
+            else:
+                bounds[0] = lvl
+
+            # Re-adjust the boundaries if the upper limit seems to low
+            if np.abs(bounds[0] - bounds[1]) < 1e-20:
+                bounds[1] *= 10
+
+    return np.reshape(prec, [cfg['TX'], cfg['SK'], cfg['UE'], cfg['BS']])
