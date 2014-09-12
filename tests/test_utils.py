@@ -136,9 +136,79 @@ class TestRATE:
 
             M = np.random.randn(Nt, Nt, K, B) + 1j*np.random.randn(Nt, Nt, K, B)
 
-            U = utils.lmmse(H, M, N0)
-
             R0 = self.slow_rate(H, M, N0)
             R = utils.rate(H, M, N0)
 
             np.testing.assert_almost_equal(R, R0)
+
+
+class TestWB:
+    def slow_wb(self, H, U, W, P, threshold=1e-6):
+        (Nr, Nt, K, B) = H.shape
+        (Nr, Nsk, K, B) = U.shape
+
+        M = np.zeros((Nt, Nsk, K, B), dtype='complex')
+
+        # Weighted transmit covariance matrices
+        C = np.zeros((Nt, Nt, B), dtype='complex')
+
+        for b in range(B):
+            for i in range(B):
+                for j in range(K):
+                    T = np.dot(np.dot(U[:, :, j, i], W[:, :, j, i]),
+                               U[:, :, j, i].conj().T)
+
+                    C[:, :, b] += np.dot(np.dot(H[:, :, j, b].conj().T, T),
+                                         H[:, :, j, b])
+
+        for b in range(B):
+            lb = 0.
+            ub = 10.
+
+            M0 = np.zeros((Nt, Nsk, K), dtype='complex')
+
+            while np.abs(ub - lb) > threshold:
+                v = (ub + lb) / 2
+
+                for k in range(K):
+                    T = np.dot(np.dot(H[:, :, k, b].conj().T, U[:, :, k, b]),
+                               W[:, :, k, b])
+
+                    M0[:, :, k] = np.dot(np.linalg.pinv(C[:, :, b] +
+                                                        np.eye(Nt)*v), T)
+
+                P_ = np.linalg.norm(M0[:])**2
+
+                if P_ < P:
+                    ub = v
+                else:
+                    lb = v
+
+                if np.abs(lb-ub) < 1e-20:
+                    ub *= 10
+
+            M[:, :, :, b] = M0
+
+        return M
+
+    def test_random(self):
+        for r in range(RANDOM_REALIZATIONS):
+            Nsk = min(Nr, Nt)
+
+            H = np.random.randn(Nr, Nt, K, B) + 1j*np.random.randn(Nr, Nt, K, B)
+
+            M = np.random.randn(Nt, Nsk, K, B) + \
+                1j*np.random.randn(Nt, Nsk, K, B)
+
+            U = utils.lmmse(H, M, N0)
+
+            W = np.zeros((Nsk, Nsk, K, B))
+            for k in range(K):
+                for b in range(B):
+                    W[:, :, k, b] = np.random.rand(Nsk, Nsk)
+                    W[:, :, k, b] = np.dot(W[:, :, k, b].T, W[:, :, k, b])
+
+            M0 = self.slow_wb(H, U, W, 1)
+            M = utils.weighted_bisection(H, U, W, 1)
+
+            np.testing.assert_almost_equal(M, M0)
