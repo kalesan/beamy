@@ -1,2 +1,12 @@
+# Python
+*.pyc
+
+# Result files
+*.npz
+
+# Profiling
+*.lprof
+
+# Misc
 .ropeproject
 __pycache__
