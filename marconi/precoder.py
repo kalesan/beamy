@@ -1,5 +1,6 @@
 """This module provides various precoder designs."""
 import itertools
+import logging
 
 import picos as pic
 
@@ -14,10 +15,14 @@ class Precoder(object):
     """ This is the base class for all precoder design. The generator function
     should be overridden to comply with the corresponding design."""
 
-    def __init__(self, sysparams):
+    def __init__(self, sysparams, precision=1e-6):
         (self.n_rx, self.n_tx, self.n_ue, self.n_bs) = sysparams
 
         self.n_sk = min(self.n_tx, self.n_rx)
+
+        self.logger = logging.getLogger(__name__)
+
+        self.precision = precision
 
     def normalize(self, prec, pwr_lim):
         """ Normalize the prec matrix to have per BS power constraint pwr_lim"""
@@ -68,19 +73,12 @@ class PrecoderWMMSE(Precoder):
                 weight[:, :, _ue, _bs] = np.linalg.inv(errm[:, :, _ue, _bs])
 
         return utils.weighted_bisection(chan, recv, weight, pwr_lim,
-                                        threshold=1e-12)
+                                        threshold=self.precision)
 
 
 class PrecoderSDP(Precoder):
     """ Joint transceiver beamformer design based on SDP reformulation and
         successive linear approximation of the original problem. """
-
-    def __init__(self, sysparams):
-        (self.n_rx, self.n_tx, self.n_ue, self.n_bs) = sysparams
-
-        self.n_sk = min(self.n_tx, self.n_rx)
-
-        #self.recv_prev = None
 
     def blkdiag(self, m_array):
         """ Block diagonalize [N1 N2 Y X] as X diagonal N1*Y-by-N2*Y blocks  """
@@ -99,151 +97,203 @@ class PrecoderSDP(Precoder):
 
         return ret_array
 
-    def generate(self, *args, **kwargs):
-        """ Generate the precoders. """
-
-        [chan_glob, recv, prec_prev, noise_pwr] = [_a for _a in args]
-
-        pwr_lim = kwargs.get('pwr_lim', 1)
-
-        # MSE and weights
-        errm = utils.mse(chan_glob, recv, prec_prev, noise_pwr)
-
+    def mse_weights(self, chan, recv, prec_prev, noise_pwr):
         weights = np.zeros((self.n_sk, self.n_sk, self.n_ue, self.n_bs),
                            dtype='complex')
 
-        for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
-                weights[:, :, _ue, _bs] = np.linalg.inv(errm[:, :, _ue, _bs])
+        errm = utils.mse(chan, recv, prec_prev, noise_pwr)
 
-        # The final precoders
+        for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
+            weights[:, :, _ue, _bs] = np.linalg.inv(errm[:, :, _ue, _bs])
+
+        return weights
+
+    def precoder(self, chan, recv, weights, lvl):
+        # Weighted effective downlink channels and covariance
+        wrecv = np.dot(np.dot(recv, weights), recv.conj().T)
+        wrecv = np.squeeze(wrecv)
+
+        wcov = np.dot(np.dot(chan.conj().T, wrecv), chan)
+
+        # Concatenated transmitters
+        prec = np.dot(np.linalg.pinv(wcov + lvl*np.eye(self.n_tx)),
+                      np.dot(np.dot(chan.conj().T, recv), np.squeeze(weights)))
+
+        return prec.reshape(self.n_tx, self.n_sk, self.n_ue, order='F').copy()
+
+    def solve(self, chan, recv, weights, lvl, tol=1e-4):
+        # pylint: disable=R0914
+
+        (n_rx, n_tx, n_ue, n_sk) = (self.n_rx, self.n_tx, self.n_ue, self.n_sk)
+
+        cov = np.dot(np.dot(chan, (1/lvl)*np.eye(n_tx)), chan.conj().T)
+
+        prob = pic.Problem()
+
+        ropt = prob.add_variable('U', (n_rx*n_ue, n_sk*n_ue), 'complex')
+
+        scov = prob.add_variable('S', (n_sk*n_ue, n_sk*n_ue), 'hermitian')
+
+        scomp = prob.add_variable('X', (n_sk*n_ue, n_sk*n_ue), 'hermitian')
+
+        ncomp = prob.add_variable('Y', (n_rx*n_ue, n_rx*n_ue), 'hermitian')
+
+        eye_sk = pic.new_param('I', np.eye(n_sk*n_ue))
+        eye_rx = pic.new_param('I', np.eye(n_rx*n_ue))
+
+        wsqrt = pic.new_param('W', np.linalg.cholesky(weights))
+        winv = pic.new_param('W', np.linalg.inv(weights))
+
+        # Objective
+        objective = 'I' | scomp
+        objective += self.noise_pwr*('I' | ncomp)
+
+        prob.set_objective('min', objective)
+
+        # Constraints
+        prob.add_constraint(((ncomp & ropt*wsqrt) //
+                             (wsqrt.H*ropt.H & eye_rx)) >> 0)
+
+        prob.add_constraint(((scomp & eye_sk) //
+                             (eye_sk & (scov + winv))) >> 0)
+
+        cpnt = pic.new_param('C0', np.dot(np.dot(recv.conj().T, cov), recv))
+
+        reff = pic.new_param('U0', np.dot(recv.conj().T, cov))
+
+        prob.add_constraint(cpnt + reff*(ropt - recv) +
+                            (ropt.H - recv.conj().T)*reff.H >> scov)
+
+        # Block diagonal structure constraint
+        zind = np.kron(np.eye(n_ue), np.ones((n_rx, n_sk)))
+        zind = np.vstack(np.where(zind == 0))
+        zind = [(zind[0, _ki], zind[1, _ki])
+                for _ki in range(zind.shape[1])]
+
+        prob.add_list_of_constraints(
+            [ropt.imag[_i, _j] == 0 for (_i, _j) in zind])
+        prob.add_list_of_constraints(
+            [ropt.real[_i, _j] == 0 for (_i, _j) in zind])
+
+        # Solve the problem
+        prob.solve(verbose=0, noduals=True, tol=tol)
+
+        ropt = np.asarray(np.matrix(ropt.value))
+
+        return np.squeeze(ropt)
+
+    def subgradient(self, chan, recv, weights):
+        itr = 1
+
+        lvl = 2
+
+        pnew = np.Inf
+
+        while np.abs(pnew - self.pwr_lim) > self.precision:
+            ropt = self.solve(chan, recv, weights, lvl)
+
+            prec = self.precoder(chan, ropt, weights, lvl)
+
+            # Compute power
+            pnew = np.linalg.norm(prec[:])**2
+
+            # Adjust the subgradient
+            lvl = max(1e-10, lvl + 0.5/np.sqrt(itr) * (pnew - self.pwr_lim))
+
+            self.logger.debug("lvl: %f P: %f err: %f", lvl, pnew,
+                              np.abs(pnew - self.pwr_lim))
+
+            itr += 1
+
+        return prec
+
+    def search(self, chan, recv, weights, method="bisection", step=0.5):
+        """ Perform the primal-dual precoder optimization over the domain of
+            dual variables.
+
+        Args:
+            chan (matrix): The concatenated channel matrix.
+            recv (matrix): Block diagonal receivers from the previous iteration.
+            weights (matrix): Block diagonal MSE weights.
+            method (str): The dual variable update method. Supported update
+                          methods are "bisection" and "subgradient".
+            step (double): Step size for the subgradient method.
+
+        Returns: The local precoder matrix.
+
+        """
+
+        upper_bound = 10.
+        bounds = np.array([0, upper_bound])
+
+        pnew = np.Inf
+
+        tol = 1e-4
+
+        itr = 1
+
+        while np.abs(pnew - self.pwr_lim) > self.precision:
+            if method == "bisection":
+                lvl = bounds.sum() / 2
+
+            ropt = self.solve(chan, recv, weights, lvl, tol)
+
+            prec = self.precoder(chan, ropt, weights, lvl)
+
+            # Compute power
+            pnew = np.linalg.norm(prec[:])**2
+
+            if method == "subgradient":
+                lvl = max(1e-10, lvl + step/np.sqrt(itr)*(pnew - self.pwr_lim))
+            else:
+                if pnew > self.pwr_lim:
+                    bounds[0] = lvl
+                else:
+                    bounds[1] = lvl
+
+            self.logger.debug("%d: lvl: %f P: %f err: %f bnd: %f", itr, lvl,
+                              pnew, np.abs(pnew - self.pwr_lim),
+                              np.abs(bounds[0] - bounds[1]))
+
+            if np.abs(bounds[0] - bounds[1]) < 1e-10:
+                if np.abs(upper_bound - bounds[1]) < 1e-9:
+                    upper_bound *= 10
+                    bounds = np.array([0, upper_bound])
+                else:
+                    tol *= 10
+                    bounds = np.array([0, upper_bound])
+
+            itr += 1
+
+        return prec
+
+    def generate(self, *args, **kwargs):
+        """ Generate the precoders. """
+
+        [chan_glob, recv, prec, noise_pwr] = [_a for _a in args]
+
+        pwr_lim = kwargs.get('pwr_lim', 1)
+
+        self.noise_pwr = noise_pwr
+        self.pwr_lim = pwr_lim
+
+        # MSE and weights
+        weights = self.mse_weights(chan_glob, recv, prec, noise_pwr)
+
+        # The new precoders
         prec = np.zeros((self.n_tx, self.n_sk, self.n_ue, self.n_bs),
                         dtype='complex')
 
         # Block diagonalize matrices
         recv = self.blkdiag(recv)
-        #if self.recv_prev is None:
-            #recv = self.blkdiag(recv)
-            #self.recv_prev = recv.copy()
-        #else:
-            #recv = self.recv_prev.copy()
-
         weights = self.blkdiag(weights)
 
         for _bs in range(self.n_bs):
             # Composite channel
             chan = np.dsplit(chan_glob[:, :, :, _bs], self.n_ue)
             chan = np.squeeze(np.vstack(chan))
-            #import ipdb; ipdb.set_trace()
 
-            # Local receivers
-            recvl = recv[:, :, _bs]
-
-            for ind in range(self.n_ue*self.n_sk):
-                weights[ind, ind, _bs] = np.real(weights[ind, ind, _bs])
-
-            wsqrt = np.linalg.cholesky(weights[:, :, _bs])
-
-            bounds = np.array([0.0, 10.0])
-
-            P_ = np.Inf
-
-            lvl = 2
-
-            step = 1
-
-            iter = 1
-
-            while np.abs(P_ - pwr_lim) > 1e-6:
-                #lvl = bounds.sum() / 2
-
-                cov = np.dot(np.dot(chan, (1/lvl)*np.eye(self.n_tx)),
-                             chan.conj().T)
-
-                #######
-                prob = pic.Problem()
-
-                U = prob.add_variable('U', (self.n_rx*self.n_ue,
-                                            self.n_sk*self.n_ue), 'complex')
-
-                S = prob.add_variable('S', (self.n_sk*self.n_ue,
-                                            self.n_sk*self.n_ue), 'hermitian')
-
-                X = prob.add_variable('X', (self.n_sk*self.n_ue,
-                                            self.n_sk*self.n_ue), 'hermitian')
-
-                Xn = prob.add_variable('Xn', (self.n_rx*self.n_ue,
-                                              self.n_rx*self.n_ue), 'hermitian')
-
-                Z = pic.new_param('I', np.eye(self.n_sk*self.n_ue))
-
-                I = pic.new_param('I', np.eye(self.n_rx*self.n_ue))
-
-                W = pic.new_param('W', wsqrt)
-                WI = pic.new_param('W', np.linalg.inv(weights[:, :, _bs]))
-
-                objective = 'I' | X
-                objective += noise_pwr*('I' | Xn)
-
-                prob.set_objective('min', objective)
-
-                prob.add_constraint(((Xn & U*W) // (W.H*U.H & I)) >> 0)
-                prob.add_constraint(((X & Z) // (Z & (S + WI))) >> 0)
-
-                C0 = pic.new_param('C0', np.dot(np.dot(recvl.conj().T, cov),
-                                                recvl))
-                U0 = pic.new_param('U0', np.dot(recvl.conj().T, cov))
-
-                prob.add_constraint(C0 + U0*(U - recvl) +
-                                    (U.H - recvl.conj().T)*U0.H >> S)
-
-                Zi = np.kron(np.eye(self.n_ue), np.ones((self.n_rx, self.n_sk)))
-                Zi = np.vstack(np.where(Zi == 0))
-                Zi = [(Zi[0, k], Zi[1, k]) for k in range(Zi.shape[1])]
-
-                #prob.add_list_of_constraints(
-                    #[U.imag[i, j] == 0 for (i, j) in Zi])
-                #prob.add_list_of_constraints(
-                    #[U.real[i, j] == 0 for (i, j) in Zi])
-
-                prob.solve(verbose=0, noduals=True, gaplim=1e-6, tol=1e-12,
-                           harmonic_steps=3, step_sqp=3)
-
-                U = np.asarray(np.matrix(U.value))
-
-                #self.recv_prev[:, :, _bs] = U.copy()
-
-                U = np.squeeze(U)
-
-                wrecv = np.dot(np.dot(U, weights[:, :, _bs]), U.conj().T)
-                wrecv = np.squeeze(wrecv)
-                wcov = np.dot(np.dot(chan.conj().T, wrecv), chan)
-
-                A = np.linalg.pinv(wcov + lvl*np.eye(self.n_tx))
-                B = np.dot(np.dot(chan.conj().T, U),
-                                  np.squeeze(weights[:, :, _bs]))
-
-                tmp = np.dot(np.linalg.pinv(wcov + lvl*np.eye(self.n_tx)),
-                             np.dot(np.dot(chan.conj().T, U),
-                                    np.squeeze(weights[:, :, _bs])))
-
-                tmp = tmp.reshape(self.n_tx, self.n_sk, self.n_ue, order='F')
-
-                prec[:, :, :, _bs] = tmp.copy()
-
-                P_ = np.linalg.norm(tmp[:])**2
-
-                step = 1./(iter**0.4)
-
-                iter += 1
-
-                lvl = max(1e-10, lvl + step*(P_ - pwr_lim))
-
-                print("lvl: %f P: %f : %f - %f" % (lvl, P_,
-                                                   np.abs(P_ - pwr_lim), step))
-
-                if P_ <= pwr_lim:
-                    bounds[1] = lvl
-                else:
-                    bounds[0] = lvl
+            prec[:, :, :, _bs] = self.search(chan, recv[:, :, _bs],
+                                             weights[:, :, _bs])
 
         return prec.copy()
