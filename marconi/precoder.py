@@ -182,31 +182,6 @@ class PrecoderSDP(Precoder):
 
         return np.squeeze(ropt)
 
-    def subgradient(self, chan, recv, weights):
-        itr = 1
-
-        lvl = 2
-
-        pnew = np.Inf
-
-        while np.abs(pnew - self.pwr_lim) > self.precision:
-            ropt = self.solve(chan, recv, weights, lvl)
-
-            prec = self.precoder(chan, ropt, weights, lvl)
-
-            # Compute power
-            pnew = np.linalg.norm(prec[:])**2
-
-            # Adjust the subgradient
-            lvl = max(1e-10, lvl + 0.5/np.sqrt(itr) * (pnew - self.pwr_lim))
-
-            self.logger.debug("lvl: %f P: %f err: %f", lvl, pnew,
-                              np.abs(pnew - self.pwr_lim))
-
-            itr += 1
-
-        return prec
-
     def search(self, chan, recv, weights, method="bisection", step=0.5):
         """ Perform the primal-dual precoder optimization over the domain of
             dual variables.
