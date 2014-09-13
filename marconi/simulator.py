@@ -5,6 +5,7 @@ precoder design. """
 import logging
 
 import numpy as np
+import pandas as pd
 
 import utils
 import chanmod
@@ -16,8 +17,10 @@ class Simulator(object):
     simulation environments and run the simulations. """
 
     def __init__(self, prec, **kwargs):
-        self.chanmod = kwargs.get('channel_model', chanmod.GaussianModel())
         self.sysparams = kwargs.get('sysparams', (2, 4, 10, 3))
+
+        self.chanmod = kwargs.get('channel_model',
+                                  chanmod.ClarkesModel(self.sysparams))
 
         self.iterations = {'channel': kwargs.get('realizations', 20),
                            'beamformer': kwargs.get('biterations', 50)}
@@ -34,43 +37,88 @@ class Simulator(object):
         else:
             self.prec = prec
 
-    def iterate_beamformers(self, chan):
+    def iteration_stats(self, chan_full, recv, prec):
+        """ Collect iteration statistics from the given precoders and receivers.
+
+        Args:
+            chan (complex array): Channel matrix.
+            recv (complex array): Receive beamformers for each iteration.
+            prec (complex array): Transmit beamformers for each iteration.
+
+        Returns: DataFrame containing the iteration statistics.
+
+        """
+
+        rate = np.zeros((self.iterations['beamformer']))
+        # mse  = np.zeros((self.iterations['beamformer'], 1))
+
+        for ind in range(0, self.iterations['beamformer']):
+            chan = chan_full[:, :, :, :, ind]
+
+            cov = utils.sigcov(chan, prec[:, :, :, :, ind], self.noise_pwr)
+
+            errm = utils.mse(chan, recv[:, :, :, :, ind], prec[:, :, :, :, ind],
+                             self.noise_pwr, cov=cov)
+
+            rate[ind] = (utils.rate(chan, prec[:, :, :, :, ind], self.noise_pwr,
+                                    errm=errm)[:]).sum() / chan.shape[3]
+
+        return pd.DataFrame({'rate': rate})
+
+    def iterate_beamformers(self, chan_full):
         """ Iteratively generate the receive and transmit beaformers for the
         given channel matrix. """
 
         logger = logging.getLogger(__name__)
 
-        n_bs = chan.shape[3]
+        (n_rx, n_tx, n_ue, n_bs) = chan_full.shape[0:4]
+
+        n_sk = min(n_rx, n_tx)
+
+        prec = np.zeros((n_tx, n_sk, n_ue, n_bs, self.iterations['beamformer']),
+                        dtype='complex')
+        recv = np.zeros((n_rx, n_sk, n_ue, n_bs, self.iterations['beamformer']),
+                        dtype='complex')
 
         # Initialize beamformers
         rprec = precoder.PrecoderGaussian(self.sysparams)
-        prec = rprec.generate(pwr_lim=self.pwr_lim)
 
-        recv = utils.lmmse(chan, prec, self.noise_pwr)
+        prec[:, :, :, :, 0] = rprec.generate(pwr_lim=self.pwr_lim)
 
-        rate = np.zeros((self.iterations['beamformer'], 1))
+        recv[:, :, :, :, 0] = utils.lmmse(chan_full[:, :, :, :, 0],
+                                          prec[:, :, :, :, 0], self.noise_pwr)
 
-        for ind in range(self.iterations['beamformer']):
-            logger.info("Iteration %d/%d", ind+1, self.iterations['beamformer'])
+        rate = np.zeros((self.iterations['beamformer']))
 
-            pwr = np.real(prec[:]*prec[:].conj()).sum()
+        iprec = prec[:, :, :, :, 0]
+        irecv = recv[:, :, :, :, 0]
 
-            prec = self.prec.generate(chan, recv, prec, self.noise_pwr,
-                                      pwr_lim=self.pwr_lim)
+        for ind in range(1, self.iterations['beamformer']):
+            chan = chan_full[:, :, :, :, ind]
 
-            cov = utils.sigcov(chan, prec, self.noise_pwr)
+            logger.info("Iteration %d/%d", ind, self.iterations['beamformer'])
 
-            recv = utils.lmmse(chan, prec, self.noise_pwr, cov=cov)
+            iprec = self.prec.generate(chan, irecv, iprec, self.noise_pwr,
+                                       pwr_lim=self.pwr_lim)
 
-            errm = utils.mse(chan, recv, prec, self.noise_pwr, cov=cov)
+            cov = utils.sigcov(chan, iprec, self.noise_pwr)
 
-            rate[ind] = (utils.rate(chan, prec, self.noise_pwr,
+            irecv = utils.lmmse(chan, iprec, self.noise_pwr, cov=cov)
+
+            errm = utils.mse(chan, irecv, iprec, self.noise_pwr, cov=cov)
+
+            rate[ind] = (utils.rate(chan, iprec, self.noise_pwr,
                                     errm=errm)[:]).sum() / n_bs
 
-            logger.info("Rate: %.2f Power: %.2f%%", rate[ind][0],
+            pwr = np.real(iprec[:]*iprec[:].conj()).sum()
+
+            logger.info("Rate: %.2f Power: %.2f%%", rate[ind],
                         100*(pwr/(n_bs*self.pwr_lim)))
 
-        return rate
+            prec[:, :, :, :, ind] = iprec
+            recv[:, :, :, :, ind] = irecv
+
+        return {'precoder': prec, 'receiver': recv}
 
     def run(self):
         """ Run the simulator setup. """
@@ -80,35 +128,21 @@ class Simulator(object):
         # Initialize the random number generator
         np.random.seed(self.seed)
 
-        rate = np.zeros((self.iterations['beamformer'], 1))
+        stats = None
 
         for rel in range(self.iterations['channel']):
-            logger.info("Realization %d/%d", rel+1,
-                        self.iterations['channel'])
+            logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
 
-            chan = self.chanmod.generate(self.sysparams)
+            chan = self.chanmod.generate(self.iterations['beamformer'])
 
-            rate += self.iterate_beamformers(chan)
+            beamformers = self.iterate_beamformers(chan)
 
-            np.savez(self.resfile, R=rate/(rel+1))
+            stat_t = self.iteration_stats(chan, beamformers['receiver'],
+                                          beamformers['precoder'])
 
-if __name__ == "__main__":
-    SPARAMS = (2, 8, 4, 1)
+            if stats is None:
+                stats = stat_t
+            else:
+                stats += stat_t
 
-    SIM = Simulator(precoder.PrecoderSDP(SPARAMS), sysparams=SPARAMS)
-
-    LOGGER = logging.getLogger()
-    LOGGER.setLevel(logging.DEBUG)
-
-    HANDLER = logging.StreamHandler()
-    HANDLER.setLevel(logging.DEBUG)
-
-    FORMATTER = logging.Formatter("%(levelname)s - %(module)s - %(message)s")
-    HANDLER.setFormatter(FORMATTER)
-
-    while len(LOGGER.handlers) > 0:
-        LOGGER.handlers.pop()
-
-    LOGGER.addHandler(HANDLER)
-
-    SIM.run()
+            np.savez(self.resfile, R=stats['rate']/(rel+1))
