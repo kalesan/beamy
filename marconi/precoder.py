@@ -48,7 +48,7 @@ class PrecoderGaussian(Precoder):
     def generate(self, *_args, **kwargs):
         """ Generate a Gaussian precoder"""
 
-        prec = np.random.randn(self.n_tx, self.n_sk, self.n_ue, self.n_bs) +  \
+        prec = np.random.randn(self.n_tx, self.n_sk, self.n_ue, self.n_bs) + \
             np.random.randn(self.n_tx, self.n_sk, self.n_ue, self.n_bs)*1j
 
         return self.normalize(prec, kwargs.get('pwr_lim', 1))
@@ -69,9 +69,8 @@ class PrecoderWMMSE(Precoder):
         weight = np.zeros((self.n_sk, self.n_sk, self.n_ue, self.n_bs),
                           dtype='complex')
 
-        for _ue in range(self.n_ue):
-            for _bs in range(self.n_bs):
-                weight[:, :, _ue, _bs] = np.linalg.inv(errm[:, :, _ue, _bs])
+        for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
+            weight[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])
 
         return utils.weighted_bisection(chan, recv, weight, pwr_lim,
                                         threshold=self.precision)
@@ -118,7 +117,7 @@ class PrecoderSDP(Precoder):
         errm = utils.mse(chan, recv, prec_prev, noise_pwr)
 
         for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
-            weights[:, :, _ue, _bs] = np.linalg.inv(errm[:, :, _ue, _bs])
+            weights[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])
 
         return weights
 
@@ -156,7 +155,7 @@ class PrecoderSDP(Precoder):
         eye_rx = pic.new_param('I', np.eye(n_rx*n_ue))
 
         wsqrt = pic.new_param('W', np.linalg.cholesky(weights))
-        winv = pic.new_param('W', np.linalg.inv(weights))
+        winv = pic.new_param('W', np.linalg.pinv(weights))
 
         # Objective
         objective = 'I' | scomp
