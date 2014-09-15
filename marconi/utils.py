@@ -15,7 +15,7 @@ def sigcov(chan, prec, noise_pwr):
     cov = np.zeros((n_rx, n_rx, n_ue), dtype='complex')
 
     # Concatenated precoders
-    prec_cat = np.reshape(prec, [n_tx, n_sk*n_ue, n_bs])
+    prec_cat = np.reshape(prec, [n_tx, n_sk*n_ue, n_bs], order='F')
 
     # Generate the covariance matrices
     for _ue in range(n_ue):
@@ -42,9 +42,9 @@ def lmmse(chan, prec, noise_pwr, cov=None):
 
     for _ue in range(n_ue):
         for _bs in range(n_bs):
-            recv[:, :, _ue, _bs] = np.dot(np.linalg.pinv(cov[:, :, _ue]),
-                                          np.dot(chan[:, :, _ue, _bs],
-                                                 prec[:, :, _ue, _bs]))
+            recv[:, :, _ue, _bs] = \
+                np.linalg.solve(cov[:, :, _ue], np.dot(chan[:, :, _ue, _bs],
+                                                       prec[:, :, _ue, _bs]))
 
     return recv
 
@@ -57,7 +57,7 @@ def mse(chan, recv, prec, noise_pwr, cov=None):
 
     errm = np.zeros((n_sk, n_sk, n_ue, n_bs), dtype='complex')
 
-    prec_cat = np.reshape(prec, [n_tx, n_sk*n_ue, n_bs])
+    prec_cat = np.reshape(prec, [n_tx, n_sk*n_ue, n_bs], order='F')
 
     # Signal covariance matrix
     if cov is None:
@@ -146,7 +146,8 @@ def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
                                               recv[:, :, _ue, _bs]),
                                        weights[:, :, _ue, _bs])
 
-    wchan = np.reshape(wchan, [cfg['TX'], cfg['SK']*cfg['UE'], cfg['BS']])
+    wchan = np.reshape(wchan, [cfg['TX'], cfg['SK']*cfg['UE'], cfg['BS']],
+                       order='F')
 
     # Perform the power bisection for each BS separately
     for _bs in range(cfg['BS']):
@@ -157,12 +158,16 @@ def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
 
         bounds = np.array([0, 10.])
 
-        while np.abs(bounds[0] - bounds[1]) > threshold:
+        err = np.inf
+
+        while err > threshold:
             lvl = (bounds.sum()) / 2
 
             prec[:, :, _bs] = np.linalg.solve((wcov[:, :, _bs] +
                                                np.eye(cfg['TX'])*lvl),
                                               wchan[:, :, _bs])
+
+            err = np.abs(np.linalg.norm(prec[:, :, _bs][:]) - np.sqrt(pwr_lim))
 
             if np.linalg.norm(prec[:, :, _bs][:]) < np.sqrt(pwr_lim):
                 bounds[1] = lvl
@@ -170,7 +175,8 @@ def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
                 bounds[0] = lvl
 
             # Re-adjust the boundaries if the upper limit seems to low
-            if np.abs(bounds[0] - bounds[1]) < 1e-20:
+            if np.abs(bounds[0] - bounds[1]) < 1e-10:
                 bounds[1] *= 10
 
-    return np.reshape(prec, [cfg['TX'], cfg['SK'], cfg['UE'], cfg['BS']])
+    return np.reshape(prec, [cfg['TX'], cfg['SK'], cfg['UE'], cfg['BS']],
+                      order='F')
