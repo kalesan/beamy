@@ -17,7 +17,7 @@ class Simulator(object):
     simulation environments and run the simulations. """
 
     def __init__(self, prec, **kwargs):
-        self.sysparams = kwargs.get('sysparams', (2, 4, 10, 3))
+        self.sysparams = kwargs.get('sysparams', (2, 4, 10, 1))
 
         self.chanmod = kwargs.get('channel_model',
                                   chanmod.ClarkesModel(self.sysparams))
@@ -31,6 +31,9 @@ class Simulator(object):
 
         self.pwr_lim = 1
         self.noise_pwr = 10**-(kwargs.get('SNR', 20)/10)
+
+        self.static_channel = kwargs.get('static_channel', True)
+        self.rate_conv_tol = 1e-4
 
         if prec is None:
             self.prec = precoder.PrecoderGaussian(self.sysparams)
@@ -93,6 +96,8 @@ class Simulator(object):
         iprec = prec[:, :, :, :, 0]
         irecv = recv[:, :, :, :, 0]
 
+        rate_prev = np.inf
+
         for ind in range(1, self.iterations['beamformer']):
             chan = chan_full[:, :, :, :, ind]
 
@@ -112,11 +117,31 @@ class Simulator(object):
 
             pwr = np.real(iprec[:]*iprec[:].conj()).sum()
 
-            logger.info("Rate: %.2f Power: %.2f%%", rate[ind],
-                        100*(pwr/(n_bs*self.pwr_lim)))
+            logger.info("Rate: %.4f Power: %.2f%% (I: %f) ", rate[ind],
+                        100*(pwr/(n_bs*self.pwr_lim)), rate[ind] - rate_prev)
+
+            # Settle on convergence for static channels
+            if self.static_channel and \
+               np.abs(rate_prev - rate[ind]) < self.rate_conv_tol:
+
+                itr = self.iterations['beamformer'] - ind
+
+                # Add necessary singleton dimensions when B = 1
+                if n_bs == 1:
+                    prec[:, :, :, :, ind:] = np.tile(iprec[:, :, :, None],
+                                                     (itr))
+                    recv[:, :, :, :, ind:] = np.tile(irecv[:, :, :, None],
+                                                     (itr))
+                else:
+                    prec[:, :, :, :, ind:] = np.tile(iprec, (itr))
+                    recv[:, :, :, :, ind:] = np.tile(irecv, (itr))
+
+                break
 
             prec[:, :, :, :, ind] = iprec
             recv[:, :, :, :, ind] = irecv
+
+            rate_prev = rate[ind]
 
         return {'precoder': prec, 'receiver': recv}
 
