@@ -1,6 +1,7 @@
 """This module provides various precoder designs."""
 import itertools
 import logging
+from multiprocessing import Process, Queue
 
 import picos as pic
 
@@ -80,6 +81,19 @@ class PrecoderSDP(Precoder):
     """ Joint transceiver beamformer design based on SDP reformulation and
         successive linear approximation of the original problem. """
 
+
+    def __init__(self, sysparams, **kwargs):
+        """Constructor for PrecoderSDP. Passes all parameters to the base class.
+
+        Args:
+            sysparams: System parameters.
+            **kwargs: Keyword arguments.
+        """
+        super(PrecoderSDP, self).__init__(sysparams, **kwargs)
+
+        # Queue for the sandboxed process management.
+        self.queue = Queue()
+
     def blkdiag(self, m_array):
         """ Block diagonalize [N1 N2 Y X] as X diagonal N1*Y-by-N2*Y blocks  """
 
@@ -119,7 +133,7 @@ class PrecoderSDP(Precoder):
         prec = np.dot(np.linalg.pinv(wcov + lvl*np.eye(self.n_tx)),
                       np.dot(np.dot(chan.conj().T, recv), np.squeeze(weights)))
 
-        return prec.reshape(self.n_tx, self.n_sk, self.n_ue, order='F').copy()
+        return prec.reshape(self.n_tx, self.n_sk, self.n_ue, order='F')
 
     def solve(self, chan, recv, weights, lvl, tol=1e-4):
         # pylint: disable=R0914
@@ -180,7 +194,7 @@ class PrecoderSDP(Precoder):
 
         ropt = np.asarray(np.matrix(ropt.value))
 
-        return np.squeeze(ropt)
+        self.queue.put(np.squeeze(ropt))
 
     def search(self, chan, recv, weights, method="bisection", step=0.5):
         """ Perform the primal-dual precoder optimization over the domain of
@@ -207,11 +221,20 @@ class PrecoderSDP(Precoder):
 
         itr = 1
 
-        while np.abs(pnew - self.pwr_lim) > self.precision:
+        err = np.inf
+
+        while err > self.precision:
             if method == "bisection":
                 lvl = bounds.sum() / 2
 
-            ropt = self.solve(chan, recv, weights, lvl, tol)
+            # Picos is sandbox into separate process to ensure proper memory
+            # management.
+            p_sandbox  = Process(target=self.solve,
+                                 args=(chan, recv, weights, lvl, tol))
+            # ropt = self.solve(chan, recv, weights, lvl, tol)
+            p_sandbox.start()
+            p_sandbox.join()
+            ropt = self.queue.get()
 
             prec = self.precoder(chan, ropt, weights, lvl)
 
@@ -226,9 +249,10 @@ class PrecoderSDP(Precoder):
                 else:
                     bounds[1] = lvl
 
+            err = np.abs(pnew - self.pwr_lim)
+
             self.logger.debug("%d: lvl: %f P: %f err: %f bnd: %f", itr, lvl,
-                              pnew, np.abs(pnew - self.pwr_lim),
-                              np.abs(bounds[0] - bounds[1]))
+                              pnew, err, np.abs(bounds[0] - bounds[1]))
 
             if np.abs(bounds[0] - bounds[1]) < 1e-10:
                 if np.abs(upper_bound - bounds[1]) < 1e-9:
@@ -271,4 +295,4 @@ class PrecoderSDP(Precoder):
             prec[:, :, :, _bs] = self.search(chan, recv[:, :, _bs],
                                              weights[:, :, _bs])
 
-        return prec.copy()
+        return prec
