@@ -1,6 +1,8 @@
 import sys
 sys.path.append("../../marconi")
 
+# from multiprocessing import Process
+
 import logging
 from simulator import Simulator
 
@@ -21,23 +23,34 @@ while len(logger.handlers) > 0:
 logger.addHandler(handler)
 
 ####
+realizations = 25
+biterations = 50
 
-B = 1
-K = 4
-tx = 2
-rx = 2
 
-realizations = 1
-biterations = 15
+def simulate(_rx, _tx, _K, _B, _SNR):
+    sparams = (_rx, _tx, _K, _B)
 
-sparams = (rx, tx, K, B)
+    wmmse_res_file = "wmmse-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    sim = Simulator(precoder.PrecoderWMMSE(sparams), sysparams=sparams,
+                    realizations=realizations, biterations=biterations,
+                    resfile=wmmse_res_file, SNR=_SNR)
 
-sim = Simulator(precoder.PrecoderWMMSE(sparams), sysparams=sparams,
-                realizations=realizations, biterations=biterations,
-                resfile='wmmse.npz')
-sim.run()
+    sim.run()
 
-sim = Simulator(precoder.PrecoderSDP(sparams), sysparams=sparams,
-                realizations=realizations, biterations=biterations,
-                resfile='sdp.npz')
-sim.run()
+    sdp_res_file = "wmmse-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    sim = Simulator(precoder.PrecoderSDP(sparams), sysparams=sparams,
+                    realizations=realizations, biterations=biterations,
+                    resfile=sdp_res_file, SNR=_SNR)
+    sim.run()
+
+
+if __name__ == '__main__':
+    # The simulation cases
+    B = 1
+    K = 4
+    tx = 4
+    rx = 2
+
+    SNR = 20
+
+    simulate(rx, tx, K, B, SNR)
