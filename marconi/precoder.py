@@ -80,19 +80,6 @@ class PrecoderSDP(Precoder):
     """ Joint transceiver beamformer design based on SDP reformulation and
         successive linear approximation of the original problem. """
 
-
-    def __init__(self, sysparams, **kwargs):
-        """Constructor for PrecoderSDP. Passes all parameters to the base class.
-
-        Args:
-            sysparams: System parameters.
-            **kwargs: Keyword arguments.
-        """
-        super(PrecoderSDP, self).__init__(sysparams, **kwargs)
-
-        # Queue for the sandboxed process management.
-        self.queue = Queue()
-
     def blkdiag(self, m_array):
         """ Block diagonalize [N1 N2 Y X] as X diagonal N1*Y-by-N2*Y blocks  """
 
@@ -134,7 +121,7 @@ class PrecoderSDP(Precoder):
 
         return prec.reshape(self.n_tx, self.n_sk, self.n_ue, order='F')
 
-    def solve(self, chan, recv, weights, lvl, tol=1e-4):
+    def solve(self, chan, recv, weights, lvl, tol=1e-4, queue=None):
         # pylint: disable=R0914
 
         (n_rx, n_tx, n_ue, n_sk) = (self.n_rx, self.n_tx, self.n_ue, self.n_sk)
@@ -193,7 +180,10 @@ class PrecoderSDP(Precoder):
 
         ropt = np.asarray(np.matrix(ropt.value))
 
-        self.queue.put(np.squeeze(ropt))
+        if queue is None:
+            return np.squeeze(ropt)
+        else:
+            queue.put(np.squeeze(ropt))
 
     def search(self, chan, recv, weights, method="bisection", step=0.5):
         """ Perform the primal-dual precoder optimization over the domain of
@@ -228,8 +218,9 @@ class PrecoderSDP(Precoder):
 
             # Picos is sandbox into separate process to ensure proper memory
             # management.
-            p_sandbox  = Process(target=self.solve,
-                                 args=(chan, recv, weights, lvl, tol))
+            queue = Queue()
+            p_sandbox = Process(target=self.solve,
+                                args=(chan, recv, weights, lvl, tol, queue))
             # ropt = self.solve(chan, recv, weights, lvl, tol)
             p_sandbox.start()
             p_sandbox.join()
