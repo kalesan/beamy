@@ -7,6 +7,9 @@
 # Profiling
 *.lprof
 
+# Log files
+*.log
+
 # Misc
 .ropeproject
 __pycache__
