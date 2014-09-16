@@ -189,7 +189,7 @@ class PrecoderSDP(Precoder):
             [ropt.real[_i, _j] == 0 for (_i, _j) in zind])
 
         # Solve the problem
-        prob.solve(verbose=0, noduals=True, tol=tol)
+        prob.solve(verbose=0, noduals=True, tol=tol, solve_via_dual=False)
 
         ropt = np.asarray(np.matrix(ropt.value))
 
