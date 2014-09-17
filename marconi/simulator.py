@@ -55,7 +55,7 @@ class Simulator(object):
         """
 
         rate = np.zeros((self.iterations['beamformer']))
-        # mse  = np.zeros((self.iterations['beamformer'], 1))
+        mse = np.zeros((self.iterations['beamformer']))
 
         for ind in range(0, self.iterations['beamformer']):
             chan = chan_full[:, :, :, :, ind]
@@ -65,10 +65,16 @@ class Simulator(object):
             errm = utils.mse(chan, recv[:, :, :, :, ind], prec[:, :, :, :, ind],
                              self.noise_pwr, cov=cov)
 
+            errm_tmp = errm.reshape((errm.shape[0], errm.shape[1],
+                                     errm.shape[2]*errm.shape[3]), order='F')
+
+            for tmp_ind in range(errm_tmp.shape[2]):
+                mse[ind] += np.real(errm_tmp[:, :, tmp_ind].diagonal().sum())
+
             rate[ind] = (utils.rate(chan, prec[:, :, :, :, ind], self.noise_pwr,
                                     errm=errm)[:]).sum() / chan.shape[3]
 
-        return pd.DataFrame({'rate': rate})
+        return pd.DataFrame({'rate': rate, 'mse': mse})
 
     def iterate_beamformers(self, chan_full):
         """ Iteratively generate the receive and transmit beaformers for the
@@ -182,4 +188,5 @@ class Simulator(object):
             else:
                 stats += stat_t
 
-            np.savez(self.resfile, R=stats['rate']/(rel+1))
+            np.savez(self.resfile, R=stats['rate']/(rel+1),
+                     E=stats['mse']/(rel+1))
