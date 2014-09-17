@@ -414,7 +414,7 @@ class PrecoderSDP(Precoder):
             # ropt = self.solve(chan, recv, weights, lvl, tol)
             p_sandbox.start()
             p_sandbox.join()
-            ropt = self.queue.get()
+            ropt = queue.get()
 
             prec = self.precoder(chan, ropt, weights, lvl)
 
