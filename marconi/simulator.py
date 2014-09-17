@@ -35,6 +35,8 @@ class Simulator(object):
         self.static_channel = kwargs.get('static_channel', True)
         self.rate_conv_tol = 1e-4
 
+        self.uplink = kwargs.get('uplink', False)
+
         if prec is None:
             self.prec = precoder.PrecoderGaussian(self.sysparams)
         else:
@@ -84,7 +86,7 @@ class Simulator(object):
                         dtype='complex')
 
         # Initialize beamformers
-        rprec = precoder.PrecoderGaussian(self.sysparams)
+        rprec = precoder.PrecoderGaussian((n_rx, n_tx, n_ue, n_bs))
 
         prec[:, :, :, :, 0] = rprec.generate(pwr_lim=self.pwr_lim)
 
@@ -132,6 +134,12 @@ class Simulator(object):
                                                      (itr))
                     recv[:, :, :, :, ind:] = np.tile(irecv[:, :, :, None],
                                                      (itr))
+                elif n_ue == 1:
+                    iprec = np.array([iprec for _x in range(itr)])
+                    irecv = np.array([irecv for _x in range(itr)])
+
+                    prec[:, :, :, :, ind:] = iprec.transpose(1,2,3,4,0)
+                    recv[:, :, :, :, ind:] = irecv.transpose(1,2,3,4,0)
                 else:
                     prec[:, :, :, :, ind:] = np.tile(iprec, (itr))
                     recv[:, :, :, :, ind:] = np.tile(irecv, (itr))
@@ -159,6 +167,10 @@ class Simulator(object):
             logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
 
             chan = self.chanmod.generate(self.iterations['beamformer'])
+
+            # For uplink simulations transpose the channel model
+            if self.uplink:
+                chan = chan.transpose(1, 0, 3, 2, 4)
 
             beamformers = self.iterate_beamformers(chan)
 
