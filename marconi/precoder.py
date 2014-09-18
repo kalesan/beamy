@@ -187,7 +187,7 @@ class PrecoderSDP_MAC(Precoder):
             [popt.real[_i, _j] == 0 for (_i, _j) in zind])
 
         # Transmit power limit
-        eye_k = pic.new_param('I', np.eye(n_sk))
+        eye_k = pic.new_param('I', np.eye(n_tx))
 
         for _ue in range(n_ue):
             pcomp = prob.add_variable('Y%i' % _ue, (n_sk, n_sk), 'hermitian')
@@ -200,7 +200,7 @@ class PrecoderSDP_MAC(Precoder):
 
             X = popt[_r0:_r1, _c0:_c1]
 
-            prob.add_constraint(((pcomp & X) // (X.H & eye_k)) >> 0)
+            prob.add_constraint(((pcomp & X.H) // (X & eye_k)) >> 0)
             prob.add_constraint(('I' | pcomp) <= pwr_lim)
 
         # Solve the problem
