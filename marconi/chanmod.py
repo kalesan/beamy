@@ -8,11 +8,8 @@ import scipy.constants
 class ChannelModel(object):
     """Docstring for ChannelModel. """
 
-    def __init__(self, sysparams, **kwargs):
-        """@todo: to be defined1.
-
-        Args:
-            sysparams (@todo): @todo
+    def __init__(self, **kwargs):
+        """ Constructor for the channel models.
 
         Kwargs:
             gain_model (str): Channel gain model. Supported models are "CellSep"
@@ -21,24 +18,17 @@ class ChannelModel(object):
 
         """
 
-        self.sysparams = sysparams
         self.gain_model = kwargs.get('gain_model', 'CellSep')
         self.cellsep = kwargs.get('cellsep', 3)
-
-        (rx, tx, K, B) = self.sysparams
-
-        # Channel gains
-        # @todo: Actual channel gain modelling
-        self.gains = np.ones((rx*tx*K*B, 1))
 
 
 class GaussianModel(object):
     """ This class defines a Gaussian channel generator. """
 
     # pylint: disable=R0201
-    def generate(self, iterations=1):
+    def generate(self, sysparams, iterations=1):
         """ Generate a Gaussian channel with given system parameters """
-        (Nrx, Ntx, K, B) = self.sysparams
+        (Nrx, Ntx, K, B) = sysparams
 
         chan = np.random.randn(Nrx, Ntx, K, B, iterations) + \
             np.random.randn(Nrx, Ntx, K, B, iterations)*1j
@@ -49,20 +39,17 @@ class GaussianModel(object):
 class ClarkesModel(ChannelModel):
     """Docstring for ClarkesModel. """
 
-    def __init__(self, sysparams, **kwargs):
+    def __init__(self, **kwargs):
         """ Constructor for Clarke's channel model. All of the parameters are
         optional up to the defaults.
 
         Kwargs:
-            speed_kmh (@todo): @todo
-            freq_sym_Hz (@todo): @todo
-            carrier_freq_Hz (@todo): @todo
-            npath (@todo): @todo
-
-        Returns: @todo
-
+            speed_kmh (double): User terminal velocity [km/h] (default: 0).
+            freq_sym_Hz (double): Symbol sampling frequency (default: 20e3).
+            carrier_freq_Hz (double): Carrier frequency (default: 2e9).
+            npath (int): Number of signal paths (default: 300).
         """
-        super(ClarkesModel, self).__init__(sysparams, **kwargs)
+        super(ClarkesModel, self).__init__(**kwargs)
 
         speed_kmh = kwargs.get('speed_kmh', 0)
         freq_sym_Hz = kwargs.get('freq_sym_Hz', 20e3)
@@ -82,7 +69,7 @@ class ClarkesModel(ChannelModel):
         # Angular Doppler frequencies
         self.phii = 2*np.pi * self.fd * np.cos(self.alpha)
 
-    def generate(self, iterations=1):
+    def generate(self, sysparams, iterations=1):
         """ Generate time-correlated Rayleigh fading channels.
 
         Args:
@@ -91,11 +78,15 @@ class ClarkesModel(ChannelModel):
         Kwargs:
             iterations (int): Number of beamformer iterations.
 
-        Returns: @todo
+        Returns: Array of channel matrices.
 
         """
 
-        (nrx, ntx, K, B) = self.sysparams
+        (rx, tx, K, B) = sysparams
+
+        # Channel gains
+        # @todo: Actual channel gain modelling
+        self.gains = np.ones((rx*tx*K*B, 1))
 
         # Timing vector
         tv = np.r_[0:iterations] * self.ts
@@ -114,4 +105,4 @@ class ClarkesModel(ChannelModel):
             paths[pth, :] = np.sqrt(self.gains[pth] / self.npath) * \
                 np.sum(np.exp(1j*theta), 0)
 
-        return paths.reshape(nrx, ntx, K, B, iterations, order='F')
+        return paths.reshape(rx, tx, K, B, iterations, order='F')

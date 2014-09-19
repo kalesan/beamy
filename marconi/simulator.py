@@ -19,8 +19,7 @@ class Simulator(object):
     def __init__(self, prec, **kwargs):
         self.sysparams = kwargs.get('sysparams', (2, 4, 10, 1))
 
-        self.chanmod = kwargs.get('channel_model',
-                                  chanmod.ClarkesModel(self.sysparams))
+        self.chanmod = kwargs.get('channel_model', chanmod.ClarkesModel())
 
         self.iterations = {'channel': kwargs.get('realizations', 20),
                            'beamformer': kwargs.get('biterations', 50)}
@@ -54,6 +53,10 @@ class Simulator(object):
 
         """
 
+        chan_full = chan_full['B2U']
+
+        # TODO: Generate rates for all scenarios and sum them up
+
         rate = np.zeros((self.iterations['beamformer']))
         mse = np.zeros((self.iterations['beamformer']))
 
@@ -80,9 +83,12 @@ class Simulator(object):
         """ Iteratively generate the receive and transmit beaformers for the
         given channel matrix. """
 
+        # TODO: Generate beamformers for all scenarios. Zeros for the unused
+        # ones.
+
         logger = logging.getLogger(__name__)
 
-        (n_rx, n_tx, n_ue, n_bs) = chan_full.shape[0:4]
+        (n_rx, n_tx, n_ue, n_bs) = chan_full['B2U'].shape[0:4]
 
         n_sk = min(n_rx, n_tx)
 
@@ -96,7 +102,7 @@ class Simulator(object):
 
         prec[:, :, :, :, 0] = rprec.generate(pwr_lim=self.pwr_lim)
 
-        recv[:, :, :, :, 0] = utils.lmmse(chan_full[:, :, :, :, 0],
+        recv[:, :, :, :, 0] = utils.lmmse(chan_full['B2U'][:, :, :, :, 0],
                                           prec[:, :, :, :, 0], self.noise_pwr)
 
         rate = np.zeros((self.iterations['beamformer']))
@@ -107,7 +113,7 @@ class Simulator(object):
         rate_prev = np.inf
 
         for ind in range(1, self.iterations['beamformer']):
-            chan = chan_full[:, :, :, :, ind]
+            chan = chan_full['B2U'][:, :, :, :, ind]
 
             logger.info("Iteration %d/%d", ind, self.iterations['beamformer'])
 
@@ -167,16 +173,30 @@ class Simulator(object):
         # Initialize the random number generator
         np.random.seed(self.seed)
 
+        (rx, tx, K, B) = self.sysparams
+
         stats = None
 
         for rel in range(self.iterations['channel']):
             logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
 
-            chan = self.chanmod.generate(self.iterations['beamformer'])
+            # BS-UE channels
+            chan_B2U = self.chanmod.generate((rx, tx, K, B),
+                                             self.iterations['beamformer'])
+
+            # BS-BS channels
+            chan_B2B = self.chanmod.generate((tx, tx, B, B),
+                                             self.iterations['beamformer'])
+
+            # UE-UE channels
+            chan_D2D = self.chanmod.generate((rx, rx, B, B),
+                                             self.iterations['beamformer'])
 
             # For uplink simulations transpose the channel model
             if self.uplink:
-                chan = chan.transpose(1, 0, 3, 2, 4)
+                chan_B2U = chan_B2U.transpose(1, 0, 3, 2, 4)
+
+            chan = {'B2U': chan_B2U, 'B2B': chan_B2B, 'D2D': chan_D2D}
 
             beamformers = self.iterate_beamformers(chan)
 
