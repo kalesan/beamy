@@ -17,9 +17,9 @@ class Precoder(object):
     should be overridden to comply with the corresponding design."""
 
     def __init__(self, sysparams, uplink=False, precision=1e-6):
-        (self.n_rx, self.n_tx, self.n_ue, self.n_bs) = sysparams
+        (self.n_dx, self.n_bx, self.K, self.B) = sysparams
 
-        self.n_sk = min(self.n_tx, self.n_rx)
+        self.n_sk = min(self.n_bx, self.n_dx)
 
         self.logger = logging.getLogger(__name__)
 
@@ -32,17 +32,26 @@ class Precoder(object):
             self.n_tx = self.n_rx
             self.n_rx = n_tx
 
-            n_ue = self.n_ue
-            self.n_ue = self.n_bs
-            self.n_bs = n_ue
+            K = self.K
+            self.K = self.B
+            self.B = K
 
     def normalize(self, prec, pwr_lim):
-        """ Normalize the prec matrix to have per BS power constraint pwr_lim"""
-        for _bs in range(self.n_bs):
-            tmp = prec[:, :, :, _bs]
+        """ Normalize the prec matrix along the last axis according to the given
+            power constraint.
+        """
 
-            prec[:, :, :, _bs] = tmp / np.sqrt((tmp[:]*tmp[:].conj()).sum())
-            prec[:, :, :, _bs] *= pwr_lim
+        for ind in range(prec.shape[-1]):
+            if len(prec.shape) == 3:
+                tmp = prec[:, :, ind]
+
+                prec[:, :, ind] = tmp / np.sqrt((tmp[:]*tmp[:].conj()).sum())
+                prec[:, :, ind] *= pwr_lim
+            else:
+                tmp = prec[:, :, :, ind]
+
+                prec[:, :, :, ind] = tmp / np.sqrt((tmp[:]*tmp[:].conj()).sum())
+                prec[:, :, :, ind] *= pwr_lim
 
         return prec
 
@@ -59,32 +68,126 @@ class PrecoderGaussian(Precoder):
     def generate(self, *_args, **kwargs):
         """ Generate a Gaussian precoder"""
 
-        prec = np.random.randn(self.n_tx, self.n_sk, self.n_ue, self.n_bs) + \
-            np.random.randn(self.n_tx, self.n_sk, self.n_ue, self.n_bs)*1j
+        (n_dx, n_bx, K, B) = (self.n_dx, self.n_bx, self.K, self.B)
 
-        return self.normalize(prec, kwargs.get('pwr_lim', 1))
+        n_sk = min(n_dx, n_bx)
+
+        pwr_lim = kwargs.get('pwr_lim', {'BS': 1, 'UE': 1})
+
+        prec = {}
+
+        prec['B2D'] = np.random.randn(n_bx, n_sk, K, B) + \
+            np.random.randn(n_bx, n_sk, K, B)*1j
+        prec['B2D'] = self.normalize(prec['B2D'], pwr_lim['BS'])
+
+        prec['D2B'] = np.random.randn(n_dx, n_sk, B, K) + \
+            np.random.randn(n_dx, n_sk, B, K)*1j
+        prec['D2B'] = self.normalize(prec['D2B'], pwr_lim['UE'])
+
+        prec['D2D'] = [[], []]
+        prec['D2D'][0] = np.random.randn(n_dx, n_dx, K) + \
+            np.random.randn(n_dx, n_dx, K)*1j
+        prec['D2D'][0] = self.normalize(prec['D2D'][0], pwr_lim['UE'])
+
+        prec['D2D'][1] = np.random.randn(n_dx, n_dx, K) + \
+            np.random.randn(n_dx, n_dx, K)*1j
+        prec['D2D'][1] = self.normalize(prec['D2D'][0], pwr_lim['UE'])
+
+        return prec
 
 
 class PrecoderWMMSE(Precoder):
     """Weighted minimum MSE (WMMSE) precoder design."""
+
+    def mse_weights(self, chan, recv, prec_prev, noise_pwr):
+        (n_dx, n_bx, K, B) = (self.n_dx, self.n_bx, self.K, self.B)
+        n_sk = min(n_dx, n_bx)
+
+        weights = {}
+
+        weights['B2D'] = np.zeros((n_sk, n_sk, K, B), dtype='complex')
+        weights['D2B'] = np.zeros((n_sk, n_sk, B, K), dtype='complex')
+        weights['D2D'] = np.array([None, None])
+        weights['D2D'][0] = np.zeros((n_dx, n_dx, K), dtype='complex')
+        weights['D2D'][1] = np.zeros((n_dx, n_dx, K), dtype='complex')
+
+        errm = utils.mse(chan, recv, prec_prev, noise_pwr)
+
+        for (_ue, _bs) in itertools.product(range(self.K), range(self.B)):
+            weights['B2D'][:, :, _ue, _bs] = np.linalg.pinv(
+                errm['B2D'][:, :, _ue, _bs])
+
+            weights['D2B'][:, :, _bs, _ue] = np.linalg.pinv(
+                errm['D2B'][:, :, _bs, _ue])
+
+            weights['D2D'][0][:, :, _ue] = np.linalg.pinv(
+                errm['D2D'][0][:, :, _ue])
+
+            weights['D2D'][1][:, :, _ue] = np.linalg.pinv(
+                errm['D2D'][1][:, :, _ue])
+
+        return weights
 
     def generate(self, *args, **kwargs):
         """ Generate the WMMSE precoders. """
 
         [chan, recv, prec_prev, noise_pwr] = [_a for _a in args]
 
-        pwr_lim = kwargs.get('pwr_lim', 1)
+        [n_dx, n_bx, K, B] = chan['B2D'].shape
+        n_sk = min(n_dx, n_bx)
 
-        errm = utils.mse(chan, recv, prec_prev, noise_pwr)
+        pwr_lim = kwargs.get('pwr_lim', {'BS': 1, 'UE': 1})
 
-        weight = np.zeros((self.n_sk, self.n_sk, self.n_ue, self.n_bs),
-                          dtype='complex')
+        err = np.Inf
+        err_prev = np.Inf
 
-        for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
-            weight[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])
+        lvl = np.ones((K, B)) * 0.5
+        STEP_BASE = 1e-5
+        stepsize = 1
 
-        return utils.weighted_bisection(chan, recv, weight, pwr_lim,
-                                        threshold=self.precision)
+        itr = 1
+
+        while np.linalg.norm(err) > self.precision:
+            errm = utils.mse(chan, recv, prec_prev, noise_pwr)
+
+            weight = self.mse_weights(chan, recv, prec_prev, noise_pwr)
+
+            for (_ue, _bs) in itertools.product(range(K), range(B)):
+                weight['B2D'][:, :, _ue, _bs] *= lvl[_ue, _bs]
+                weight['D2B'][:, :, _bs, _ue] *= (1 - lvl[_ue, _bs])
+
+            prec = utils.weighted_bisection(chan, recv, weight, pwr_lim,
+                                            threshold=self.precision)
+
+            rates = utils.rate(chan, prec, noise_pwr)
+
+            rates['D2B'] = rates['D2B'].transpose(1, 0)
+
+            err = rates['D2B'][:].sum() - rates['B2D'][:].sum()
+
+            if np.abs(err - err_prev) < 1e-4:
+                stepsize = 1.01*stepsize
+            else:
+                stepsize = 1/np.sqrt(itr)
+
+            lvl = lvl + stepsize*(err)
+
+            # Mostly like D2D rates are zero and we can stop
+            if np.linalg.norm(lvl[:]) > 1e10:
+                break
+
+            if np.mod(itr, 100) == 0:
+                self.logger.debug("err: %f, lvl: %f (%f), r1: %f, r2: %f " +
+                                  "r3: %f, r4: %f", np.linalg.norm(err),
+                                   np.linalg.norm(lvl[:]), stepsize,
+                                   rates['D2B'][:].sum(), rates['B2D'][:].sum(),
+                                   rates['D2D'][0][:].sum(),
+                                   rates['D2D'][1][:].sum())
+
+            itr += 1
+            err_prev = err
+
+        return prec
 
 
 class PrecoderSDP_MAC(Precoder):
@@ -102,13 +205,26 @@ class PrecoderSDP_MAC(Precoder):
         return scipy.linalg.block_diag(*blocks)
 
     def mse_weights(self, chan, recv, prec_prev, noise_pwr):
-        weights = np.zeros((self.n_sk, self.n_sk, self.n_ue, self.n_bs),
-                           dtype='complex')
+        weights = {}
 
-        errm = utils.mse(chan, recv, prec_prev, noise_pwr)
+        weights['B2D'] = np.zeros((n_sk, n_sk, K, B), dtype='complex')
+        weights['D2B'] = np.zeros((n_sk, n_sk, B, K), dtype='complex')
+        weights['D2D'] = [[], []]
+        weights['D2D'][0] = np.zeros((n_dx, n_dx, K), dtype='complex')
+        weights['D2D'][1] = np.zeros((n_dx, n_dx, K), dtype='complex')
 
-        for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
-            weights[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])
+        for (_ue, _bs) in itertools.product(range(self.K), range(self.B)):
+            weights['B2D'][:, :, _ue, _bs] = np.linalg.pinv(
+                errm['B2D'][:, :, _ue, _bs])
+
+            weights['D2B'][:, :, _bs, _ue] = np.linalg.pinv(
+                errm['D2B'][:, :, _bs, _ue])
+
+            weights['D2D'][0][:, :, _ue] = np.linalg.pinv(
+                errm['D2D'][0][:, :, _ue])
+
+            weights['D2D'][1][:, :, _ue] = np.linalg.pinv(
+                errm['D2D'][1][:, :, _ue])
 
         return weights
 
@@ -123,7 +239,7 @@ class PrecoderSDP_MAC(Precoder):
         prec = np.dot(np.linalg.pinv(wcov + lvl*np.eye(self.n_tx)),
                       np.dot(np.dot(chan.conj().T, recv), np.squeeze(weights)))
 
-        return prec.reshape(self.n_tx, self.n_sk, self.n_ue, order='F')
+        return prec.reshape(self.n_tx, self.n_sk, self.K, order='F')
 
     def solve(self, chan, prec, weights, pwr_lim, tol=1e-6, queue=None):
         """Solve the MAC transmit beamformers. Works only for B = 1.
@@ -142,20 +258,20 @@ class PrecoderSDP_MAC(Precoder):
 
         """
         # pylint: disable=R0914
-        (n_rx, n_tx, n_ue, n_sk) = (self.n_rx, self.n_tx, self.n_bs, self.n_sk)
+        (n_rx, n_tx, K, n_sk) = (self.n_rx, self.n_tx, self.B, self.n_sk)
 
         cov = np.dot(np.dot(chan.conj().T, 1/self.noise_pwr * np.eye(n_rx)),
                      chan)
 
         prob = pic.Problem()
 
-        popt = prob.add_variable('U', (n_tx*n_ue, n_sk*n_ue), 'complex')
+        popt = prob.add_variable('U', (n_tx*K, n_sk*K), 'complex')
 
-        scov = prob.add_variable('S', (n_sk*n_ue, n_sk*n_ue), 'hermitian')
+        scov = prob.add_variable('S', (n_sk*K, n_sk*K), 'hermitian')
 
-        scomp = prob.add_variable('X', (n_sk*n_ue, n_sk*n_ue), 'hermitian')
+        scomp = prob.add_variable('X', (n_sk*K, n_sk*K), 'hermitian')
 
-        eye_sk = pic.new_param('I', np.eye(n_sk*n_ue))
+        eye_sk = pic.new_param('I', np.eye(n_sk*K))
 
         weights = pic.new_param('W', weights)
 
@@ -176,7 +292,7 @@ class PrecoderSDP_MAC(Precoder):
                             (popt.H - prec.conj().T)*peff.H >> scov)
 
         # Block diagonal structure constraint
-        zind = np.kron(np.eye(n_ue), np.ones((n_tx, n_sk)))
+        zind = np.kron(np.eye(K), np.ones((n_tx, n_sk)))
         zind = np.vstack(np.where(zind == 0))
         zind = [(zind[0, _ki], zind[1, _ki])
                 for _ki in range(zind.shape[1])]
@@ -189,7 +305,7 @@ class PrecoderSDP_MAC(Precoder):
         # Transmit power limit
         eye_k = pic.new_param('I', np.eye(n_tx))
 
-        for _ue in range(n_ue):
+        for _ue in range(K):
             pcomp = prob.add_variable('Y%i' % _ue, (n_sk, n_sk), 'hermitian')
 
             _r0 = (_ue)*n_tx
@@ -208,9 +324,9 @@ class PrecoderSDP_MAC(Precoder):
 
         popt = np.asarray(np.matrix(popt.value))
 
-        prec = np.zeros((n_tx, n_sk, 1, n_ue), dtype='complex')
+        prec = np.zeros((n_tx, n_sk, 1, K), dtype='complex')
 
-        for _ue in range(n_ue):
+        for _ue in range(K):
             _r0 = (_ue)*n_tx
             _r1 = (_ue+1)*n_tx
 
@@ -238,7 +354,7 @@ class PrecoderSDP_MAC(Precoder):
         weights = self.mse_weights(chan_glob, recv_prev, prec_prev, noise_pwr)
 
         # The new precoders
-        prec = np.zeros((self.n_tx, self.n_sk, self.n_ue, self.n_bs),
+        prec = np.zeros((self.n_tx, self.n_sk, self.K, self.B),
                         dtype='complex')
 
         # Block diagonalize matrices
@@ -247,7 +363,7 @@ class PrecoderSDP_MAC(Precoder):
         weights = self.blkdiag(np.squeeze(weights, axis=(2,)))
 
         chan = np.squeeze(chan_glob)
-        chan = chan.reshape((self.n_rx, self.n_tx*self.n_bs),
+        chan = chan.reshape((self.n_rx, self.n_tx*self.B),
                             order='F')
 
         # Picos is sandbox into separate process to ensure proper memory
@@ -288,12 +404,12 @@ class PrecoderSDP(Precoder):
         return ret_array
 
     def mse_weights(self, chan, recv, prec_prev, noise_pwr):
-        weights = np.zeros((self.n_sk, self.n_sk, self.n_ue, self.n_bs),
+        weights = np.zeros((self.n_sk, self.n_sk, self.K, self.B),
                            dtype='complex')
 
         errm = utils.mse(chan, recv, prec_prev, noise_pwr)
 
-        for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
+        for (_ue, _bs) in itertools.product(range(self.K), range(self.B)):
             weights[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])
 
         return weights
@@ -309,27 +425,27 @@ class PrecoderSDP(Precoder):
         prec = np.dot(np.linalg.pinv(wcov + lvl*np.eye(self.n_tx)),
                       np.dot(np.dot(chan.conj().T, recv), np.squeeze(weights)))
 
-        return prec.reshape(self.n_tx, self.n_sk, self.n_ue, order='F')
+        return prec.reshape(self.n_tx, self.n_sk, self.K, order='F')
 
     def solve(self, chan, recv, weights, lvl, tol=1e-4, queue=None):
         # pylint: disable=R0914
 
-        (n_rx, n_tx, n_ue, n_sk) = (self.n_rx, self.n_tx, self.n_ue, self.n_sk)
+        (n_rx, n_tx, K, n_sk) = (self.n_rx, self.n_tx, self.K, self.n_sk)
 
         cov = np.dot(np.dot(chan, (1/lvl)*np.eye(n_tx)), chan.conj().T)
 
         prob = pic.Problem()
 
-        ropt = prob.add_variable('U', (n_rx*n_ue, n_sk*n_ue), 'complex')
+        ropt = prob.add_variable('U', (n_rx*K, n_sk*K), 'complex')
 
-        scov = prob.add_variable('S', (n_sk*n_ue, n_sk*n_ue), 'hermitian')
+        scov = prob.add_variable('S', (n_sk*K, n_sk*K), 'hermitian')
 
-        scomp = prob.add_variable('X', (n_sk*n_ue, n_sk*n_ue), 'hermitian')
+        scomp = prob.add_variable('X', (n_sk*K, n_sk*K), 'hermitian')
 
-        ncomp = prob.add_variable('Y', (n_rx*n_ue, n_rx*n_ue), 'hermitian')
+        ncomp = prob.add_variable('Y', (n_rx*K, n_rx*K), 'hermitian')
 
-        eye_sk = pic.new_param('I', np.eye(n_sk*n_ue))
-        eye_rx = pic.new_param('I', np.eye(n_rx*n_ue))
+        eye_sk = pic.new_param('I', np.eye(n_sk*K))
+        eye_rx = pic.new_param('I', np.eye(n_rx*K))
 
         wsqrt = pic.new_param('W', np.linalg.cholesky(weights))
         winv = pic.new_param('W', np.linalg.pinv(weights))
@@ -355,7 +471,7 @@ class PrecoderSDP(Precoder):
                             (ropt.H - recv.conj().T)*reff.H >> scov)
 
         # Block diagonal structure constraint
-        zind = np.kron(np.eye(n_ue), np.ones((n_rx, n_sk)))
+        zind = np.kron(np.eye(K), np.ones((n_rx, n_sk)))
         zind = np.vstack(np.where(zind == 0))
         zind = [(zind[0, _ki], zind[1, _ki])
                 for _ki in range(zind.shape[1])]
@@ -432,7 +548,7 @@ class PrecoderSDP(Precoder):
             err = np.abs(pnew - self.pwr_lim)
 
             self.logger.debug("%d: lvl: %f P: %f err: %f bnd: %f", itr, lvl,
-                              pnew, err, np.abs(bounds[0] - bounds[1]))
+                            pnew, err, np.abs(bounds[0] - bounds[1]))
 
             if np.abs(bounds[0] - bounds[1]) < 1e-10:
                 if np.abs(upper_bound - bounds[1]) < 1e-9:
@@ -460,16 +576,16 @@ class PrecoderSDP(Precoder):
         weights = self.mse_weights(chan_glob, recv, prec, noise_pwr)
 
         # The new precoders
-        prec = np.zeros((self.n_tx, self.n_sk, self.n_ue, self.n_bs),
+        prec = np.zeros((self.n_tx, self.n_sk, self.K, self.B),
                         dtype='complex')
 
         # Block diagonalize matrices
         recv = self.blkdiag(recv)
         weights = self.blkdiag(weights)
 
-        for _bs in range(self.n_bs):
+        for _bs in range(self.B):
             # Composite channel
-            chan = np.dsplit(chan_glob[:, :, :, _bs], self.n_ue)
+            chan = np.dsplit(chan_glob[:, :, :, _bs], self.K)
             chan = np.squeeze(np.vstack(chan))
 
             prec[:, :, :, _bs] = self.search(chan, recv[:, :, _bs],

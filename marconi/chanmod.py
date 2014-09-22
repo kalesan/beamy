@@ -69,7 +69,7 @@ class ClarkesModel(ChannelModel):
         # Angular Doppler frequencies
         self.phii = 2*np.pi * self.fd * np.cos(self.alpha)
 
-    def generate(self, sysparams, iterations=1):
+    def generate(self, sysparams, **kwargs):
         """ Generate time-correlated Rayleigh fading channels.
 
         Args:
@@ -81,12 +81,19 @@ class ClarkesModel(ChannelModel):
         Returns: Array of channel matrices.
 
         """
-
         (rx, tx, K, B) = sysparams
 
         # Channel gains
         # @todo: Actual channel gain modelling
-        self.gains = np.ones((rx*tx*K*B, 1))
+
+        iterations = kwargs.get('iterations', 1)
+        gains = kwargs.get('gains', np.ones((K, B)))
+
+        gains = 10**(gains / 10)
+
+        gains = gains.reshape((K*B, 1), order='F')
+
+        path_powers = np.kron(np.kron(1, gains), np.ones((rx*tx, 1)))
 
         # Timing vector
         tv = np.r_[0:iterations] * self.ts
@@ -95,14 +102,14 @@ class ClarkesModel(ChannelModel):
         # Subpath complex phase evolution (N x nsamples)
         theta_t = np.dot(self.phii, tv.T)
 
-        paths = np.zeros((len(self.gains), iterations), dtype='complex')
+        paths = np.zeros((len(path_powers), iterations), dtype='complex')
 
-        for pth in range(len(self.gains)):
+        for pth in range(len(path_powers)):
             # add random complex init phases per subpath
             theta = theta_t + np.tile(2 * np.pi * np.random.rand(self.npath, 1),
                                       (1, iterations))
 
-            paths[pth, :] = np.sqrt(self.gains[pth] / self.npath) * \
+            paths[pth, :] = np.sqrt(path_powers[pth] / self.npath) * \
                 np.sum(np.exp(1j*theta), 0)
 
-        return paths.reshape(rx, tx, K, B, iterations, order='F')
+        return paths.reshape((rx, tx, K, B, iterations), order='F')

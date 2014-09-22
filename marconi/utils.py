@@ -9,42 +9,118 @@ import numpy as np
 def sigcov(chan, prec, noise_pwr):
     """ Signal received covariance for given set of precoders. """
 
-    (n_rx, n_tx, n_ue, n_bs) = chan.shape
-    (n_tx, n_sk, n_ue, n_bs) = prec.shape
+    (n_dx, n_bx, K, B) = chan['B2D'].shape
+    (n_bx, n_sk, K, B) = prec['B2D'].shape
 
-    cov = np.zeros((n_rx, n_rx, n_ue), dtype='complex')
+    cov = {}
+
+    cov_bs = np.zeros((n_bx, n_bx, B), dtype='complex')
+
+    cov_ue = np.array([None, None])
+    cov_ue[0] = np.zeros((n_dx, n_dx, K), dtype='complex')
+    cov_ue[1] = np.zeros((n_dx, n_dx, K), dtype='complex')
 
     # Concatenated precoders
-    prec_cat = np.reshape(prec, [n_tx, n_sk*n_ue, n_bs], order='F')
+    prec_cat = {}
+    prec_cat['B2D'] = np.reshape(prec['B2D'], [n_bx, n_sk*K, B], order='F')
+    prec_cat['D2B'] = np.reshape(prec['D2B'], [n_dx, n_sk*B, K], order='F')
+    prec_cat['D2D'] = [[], []]
+    prec_cat['D2D'][0] = np.reshape(prec['D2D'][0], [n_dx, n_dx, K], order='F')
+    prec_cat['D2D'][1] = np.reshape(prec['D2D'][1], [n_dx, n_dx, K], order='F')
 
     # Generate the covariance matrices
-    for _ue in range(n_ue):
-        cov[:, :, _ue] = np.eye(n_rx)*noise_pwr
 
-        for _bs in range(n_bs):
-            _pc = np.dot(chan[:, :, _ue, _bs], prec_cat[:, :, _bs])
-            cov[:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
+    # Slot 1
+    for _bs in range(B):
+        cov_bs[:, :, _bs] = np.eye(n_bx)*noise_pwr['BS']
 
-    return cov
+        for _ue_tran in range(K):
+            _pc = np.dot(chan['D2B'][:, :, _bs, _ue_tran],
+                         prec_cat['D2D'][0][:, :, _ue_tran])
+
+            cov_bs[:, :, _bs] += np.dot(_pc, _pc.conj().transpose())
+
+            _pc = np.dot(chan['D2B'][:, :, _bs, _ue_tran],
+                         prec_cat['D2B'][:, :, _ue_tran])
+
+            cov_bs[:, :, _bs] += np.dot(_pc, _pc.conj().transpose())
+
+    for _ue in range(K):
+        cov_ue[0][:, :, _ue] = np.eye(n_dx)*noise_pwr['UE']
+
+        for _ue_tran in range(K):
+            _pc = np.dot(chan['D2D'][:, :, _ue, _ue_tran],
+                         prec_cat['D2D'][0][:, :, _ue_tran])
+
+            cov_ue[0][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
+
+            _pc = np.dot(chan['D2D'][:, :, _ue, _ue_tran],
+                         prec_cat['D2B'][:, :, _ue_tran])
+
+            cov_ue[0][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
+
+    # Slot 2
+    for _ue in range(K):
+        cov_ue[1][:, :, _ue] = np.eye(n_dx)*noise_pwr['UE']
+
+        for _bs in range(B):
+            _pc = np.dot(chan['B2D'][:, :, _ue, _bs],
+                         prec_cat['B2D'][:, :, _bs])
+
+            cov_ue[1][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
+
+        for _ue_tran in range(K):
+            _pc = np.dot(chan['D2D'][:, :, _ue, _ue_tran],
+                         prec_cat['D2D'][1][:, :, _ue_tran])
+
+            cov_ue[1][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
+
+    return {'UE': cov_ue, 'BS': cov_bs}
 
 
 def lmmse(chan, prec, noise_pwr, cov=None):
     """ Generate linear MMSE receive beamformers. """
 
-    n_rx = chan.shape[0]
-    (n_sk, n_ue, n_bs) = prec.shape[1:]
+    (n_dx, n_bx, K, B) = chan['B2D'].shape
+    (n_bx, n_sk, K, B) = prec['B2D'].shape
 
-    recv = np.zeros((n_rx, n_sk, n_ue, n_bs), dtype='complex')
+    recv = {}
+
+    recv['B2D'] = np.zeros((n_dx, n_sk, K, B), dtype='complex')
+    recv['D2B'] = np.zeros((n_bx, n_sk, B, K), dtype='complex')
+    recv['D2D'] = [[], []]
+    recv['D2D'][0] = np.zeros((n_dx, n_dx, K), dtype='complex')
+    recv['D2D'][1] = np.zeros((n_dx, n_dx, K), dtype='complex')
 
     # Signal covariance matrix
     if cov is None:
         cov = sigcov(chan, prec, noise_pwr)
 
-    for _ue in range(n_ue):
-        for _bs in range(n_bs):
-            recv[:, :, _ue, _bs] = \
-                np.linalg.solve(cov[:, :, _ue], np.dot(chan[:, :, _ue, _bs],
-                                                       prec[:, :, _ue, _bs]))
+    # Slot 1
+    for (_ue, _bs) in itertools.product(range(K), range(B)):
+        recv['D2B'][:, :, _bs, _ue] = \
+            np.dot(np.linalg.pinv(cov['BS'][:, :, _bs]),
+                   np.dot(chan['D2B'][:, :, _bs, _ue],
+                          prec['D2B'][:, :, _bs, _ue]))
+
+    for _ue in range(K):
+        recv['D2D'][0][:, :, _ue] = \
+            np.dot(np.linalg.pinv(cov['UE'][0][:, :, _ue]),
+                   np.dot(chan['D2D'][:, :, _ue, _ue],
+                          prec['D2D'][0][:, :, _ue]))
+
+    # Slot 2
+    for (_ue, _bs) in itertools.product(range(K), range(B)):
+        recv['B2D'][:, :, _ue, _bs] = \
+            np.dot(np.linalg.pinv(cov['UE'][1][:, :, _ue]),
+                   np.dot(chan['B2D'][:, :, _ue, _bs],
+                          prec['B2D'][:, :, _ue, _bs]))
+
+    for _ue in range(K):
+        recv['D2D'][1][:, :, _ue] = \
+            np.dot(np.linalg.pinv(cov['UE'][1][:, :, _ue]),
+                   np.dot(chan['D2D'][:, :, _ue, _ue],
+                          prec['D2D'][1][:, :, _ue]))
 
     return recv
 
@@ -52,32 +128,128 @@ def lmmse(chan, prec, noise_pwr, cov=None):
 def mse(chan, recv, prec, noise_pwr, cov=None):
     """ Compute the user specific mean-squared error matrices. """
 
-    (n_tx, n_ue, n_bs) = chan.shape[1:]
-    (n_tx, n_sk, n_ue, n_bs) = prec.shape
+    (n_dx, n_bx, K, B) = chan['B2D'].shape
+    (n_bx, n_sk, K, B) = prec['B2D'].shape
 
-    errm = np.zeros((n_sk, n_sk, n_ue, n_bs), dtype='complex')
+    errm = {}
 
-    prec_cat = np.reshape(prec, [n_tx, n_sk*n_ue, n_bs], order='F')
+    errm['B2D'] = np.zeros((n_sk, n_sk, K, B), dtype='complex')
+    errm['D2B'] = np.zeros((n_sk, n_sk, B, K), dtype='complex')
+    errm['D2D'] = [[], []]
+    errm['D2D'][0] = np.zeros((n_dx, n_dx, K), dtype='complex')
+    errm['D2D'][1] = np.zeros((n_dx, n_dx, K), dtype='complex')
+
+    # Concatenated precoders
+    prec_cat = {}
+    prec_cat['B2D'] = np.reshape(prec['B2D'], [n_bx, n_sk*K, B], order='F')
+    prec_cat['D2B'] = np.reshape(prec['D2B'], [n_dx, n_sk*B, K], order='F')
+    prec_cat['D2D'] = [[], []]
+    prec_cat['D2D'][0] = np.reshape(prec['D2D'][0], [n_dx, n_dx, K], order='F')
+    prec_cat['D2D'][1] = np.reshape(prec['D2D'][1], [n_dx, n_dx, K], order='F')
 
     # Signal covariance matrix
     if cov is None:
         cov = sigcov(chan, prec, noise_pwr)
 
-    for _ue in range(n_ue):
-        for _bs in range(n_bs):
-            _tmp = np.dot(recv[:, :, _ue, _bs].conj().T,
-                          np.dot(chan[:, :, _ue, _bs], prec[:, :, _ue, _bs]))
+    ## Slot 1 ##
 
-            errm[:, :, _ue, _bs] = np.eye(n_sk) - 2*np.real(_tmp)
-            errm[:, :, _ue, _bs] += noise_pwr * \
-                np.dot(recv[:, :, _ue, _bs].conj().T, recv[:, :, _ue, _bs])
+    # Device to base station
+    for (_ue, _bs) in itertools.product(range(K), range(B)):
+        # Intended signal
+        _tmp = np.dot(recv['D2B'][:, :, _bs, _ue].conj().T,
+                        np.dot(chan['D2B'][:, :, _bs, _ue],
+                               prec['D2B'][:, :, _bs, _ue]))
 
-            for _int_bs in range(n_bs):
-                _tmp = np.dot(recv[:, :, _ue, _bs].conj().T,
-                              np.dot(chan[:, :, _ue, _int_bs],
-                                     prec_cat[:, :, _int_bs]))
+        errm['D2B'][:, :, _bs, _ue] = np.eye(n_sk) - _tmp - _tmp.conj().T
+        errm['D2B'][:, :, _bs, _ue] += noise_pwr['BS'] * \
+            np.dot(recv['D2B'][:, :, _bs, _ue].conj().T,
+                   recv['D2B'][:, :, _bs, _ue])
 
-                errm[:, :, _ue, _bs] += np.dot(_tmp, _tmp.conj().T)
+        for _int_ue in range(K):
+            _tmp = np.dot(recv['D2B'][:, :, _bs, _ue].conj().T,
+                            np.dot(chan['D2B'][:, :, _bs, _int_ue],
+                                   prec_cat['D2B'][:, :, _int_ue]))
+
+            errm['D2B'][:, :, _bs, _ue] += np.dot(_tmp, _tmp.conj().T)
+
+            _tmp = np.dot(recv['D2B'][:, :, _bs, _ue].conj().T,
+                            np.dot(chan['D2B'][:, :, _bs, _int_ue],
+                                   prec_cat['D2D'][0][:, :, _int_ue]))
+
+            errm['D2B'][:, :, _bs, _ue] += np.dot(_tmp, _tmp.conj().T)
+
+    # Device to device
+    for _ue in range(K):
+        # Intended signal
+        _tmp = np.dot(recv['D2D'][0][:, :, _ue].conj().T,
+                        np.dot(chan['D2D'][:, :, _ue, _ue],
+                               prec['D2D'][0][:, :, _ue]))
+
+        errm['D2D'][0][:, :, _ue] = np.eye(n_dx) - _tmp - _tmp.conj().T
+        errm['D2D'][0][:, :, _ue] += noise_pwr['UE'] * \
+            np.dot(recv['D2D'][0][:, :, _ue].conj().T,
+                   recv['D2D'][0][:, :, _ue])
+
+        for _int_ue in range(K):
+            _tmp = np.dot(recv['D2D'][0][:, :, _ue].conj().T,
+                            np.dot(chan['D2D'][:, :, _ue, _int_ue],
+                                   prec_cat['D2D'][0][:, :, _int_ue]))
+
+            errm['D2D'][0][:, :, _ue] += np.dot(_tmp, _tmp.conj().T)
+
+    ## Slot 2 ##
+
+    # Base station to device
+    for (_ue, _bs) in itertools.product(range(K), range(B)):
+        # Intended signal
+        _tmp = np.dot(recv['B2D'][:, :, _ue, _bs].conj().T,
+                        np.dot(chan['B2D'][:, :, _ue, _bs],
+                               prec['B2D'][:, :, _ue, _bs]))
+
+        errm['B2D'][:, :, _ue, _bs] = np.eye(n_sk) - _tmp - _tmp.conj().T
+        errm['B2D'][:, :, _ue, _bs] += noise_pwr['UE'] * \
+            np.dot(recv['B2D'][:, :, _ue, _bs].conj().T,
+                   recv['B2D'][:, :, _ue, _bs])
+
+        for _int_bs in range(B):
+            _tmp = np.dot(recv['B2D'][:, :, _ue, _bs].conj().T,
+                            np.dot(chan['B2D'][:, :, _ue, _int_bs],
+                                   prec_cat['B2D'][:, :, _int_bs]))
+
+            errm['B2D'][:, :, _ue, _bs] += np.dot(_tmp, _tmp.conj().T)
+
+        for _int_ue in range(K):
+            _tmp = np.dot(recv['B2D'][:, :, _ue, _bs].conj().T,
+                            np.dot(chan['D2D'][:, :, _ue, _int_ue],
+                                   prec_cat['D2D'][1][:, :, _int_ue]))
+
+            errm['B2D'][:, :, _ue, _bs] += np.dot(_tmp, _tmp.conj().T)
+
+    # Device to device
+    for _ue in range(K):
+        # Intended signal
+        _tmp = np.dot(recv['D2D'][1][:, :, _ue].conj().T,
+                        np.dot(chan['D2D'][:, :, _ue, _ue],
+                               prec['D2D'][1][:, :, _ue]))
+
+        errm['D2D'][1][:, :, _ue] = np.eye(n_dx) - _tmp - _tmp.conj().T
+        errm['D2D'][1][:, :, _ue] += noise_pwr['UE'] * \
+            np.dot(recv['D2D'][1][:, :, _ue].conj().T,
+                   recv['D2D'][1][:, :, _ue])
+
+        for _int_bs in range(B):
+            _tmp = np.dot(recv['D2D'][1][:, :, _ue].conj().T,
+                            np.dot(chan['B2D'][:, :, _ue, _int_bs],
+                                   prec_cat['B2D'][:, :, _int_bs]))
+
+            errm['D2D'][1][:, :, _ue] += np.dot(_tmp, _tmp.conj().T)
+
+        for _int_ue in range(K):
+            _tmp = np.dot(recv['D2D'][1][:, :, _ue].conj().T,
+                            np.dot(chan['D2D'][:, :, _ue, _int_ue],
+                                   prec_cat['D2D'][1][:, :, _int_ue]))
+
+            errm['D2D'][1][:, :, _ue] += np.dot(_tmp, _tmp.conj().T)
 
     return errm
 
@@ -89,7 +261,16 @@ def rate(chan, prec, noise_pwr, cov=None, errm=None):
         beamformers.
     """
 
-    (n_ue, n_bs) = chan.shape[2:]
+    (n_dx, n_bx, K, B) = chan['B2D'].shape
+    (n_bx, n_sk, K, B) = prec['B2D'].shape
+
+    rates = {}
+
+    rates['B2D'] = np.zeros((K, B))
+    rates['D2B'] = np.zeros((B, K))
+    rates['D2D'] = [[], []]
+    rates['D2D'][0] = np.zeros(K)
+    rates['D2D'][1] = np.zeros(K)
 
     # Signal covariance matrix
     if cov is None:
@@ -100,60 +281,100 @@ def rate(chan, prec, noise_pwr, cov=None, errm=None):
     if errm is None:
         errm = mse(chan, recv, prec, noise_pwr, cov=cov)
 
-    rates = np.zeros((n_ue, n_bs))
+    for (_ue, _bs) in itertools.product(range(K), range(B)):
+        _tmp = -np.log2(np.linalg.det(errm['B2D'][:, :, _ue, _bs]))
+        rates['B2D'][_ue, _bs] = np.real(_tmp)
+        if np.real(_tmp) < 0:
+            import ipdb; ipdb.set_trace()
 
-    for _ue in range(n_ue):
-        for _bs in range(n_bs):
-            _tmp = -np.log2(np.linalg.det(errm[:, :, _ue, _bs]))
-            rates[_ue, _bs] = np.real(_tmp)
+        _tmp = -np.log2(np.linalg.det(errm['D2B'][:, :, _bs, _ue]))
+        rates['D2B'][_bs, _ue] = np.real(_tmp)
+        if np.real(_tmp) < 0:
+            import ipdb; ipdb.set_trace()
+
+    for _ue in range(K):
+        _tmp = -np.log2(np.linalg.det(errm['D2D'][0][:, :, _ue]))
+        rates['D2D'][0][_ue] = np.real(_tmp)
+        if np.real(_tmp) < 0:
+            import ipdb; ipdb.set_trace()
+
+        _tmp = -np.log2(np.linalg.det(errm['D2D'][1][:, :, _ue]))
+        rates['D2D'][1][_ue] = np.real(_tmp)
+        if np.real(_tmp) < 0:
+            import ipdb; ipdb.set_trace()
 
     return rates
 
 
-def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
+def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-6):
     """ Utilize the weighted bisection algorithm to solve the weighted MSE
-        minimizing transmit beamformers subject to given per-BS sum power
-        constraint. """
+        minimizing transmit beamformers for slot 1 subject to given per-BS sum
+        power constraint. """
 
     # System configuration
-    cfg = {'TX': chan.shape[1], 'UE': chan.shape[2], 'BS': chan.shape[3],
-           'SK': recv.shape[1]}
+    (n_dx, n_bx, K, B) = chan['B2D'].shape
+    n_sk = min(n_dx, n_bx)
 
     # The final precoders
-    prec = np.zeros((cfg['TX'], cfg['SK']*cfg['UE'], cfg['BS']),
-                    dtype='complex')
+    prec = {}
+    prec['D2B'] = np.zeros((n_dx, n_sk*B, K), dtype='complex')
+    prec['D2D'] = np.zeros((n_dx, n_sk, K), dtype='complex')
 
     # Weighted transmit covariance matrices
-    wcov = np.zeros((cfg['TX'], cfg['TX'], cfg['BS']), dtype='complex')
+    wcov = np.zeros((n_dx, n_dx, K), dtype='complex')
 
-    for (_bs, _int_bs, _ue) in itertools.product(range(cfg['BS']),
-                                                 range(cfg['BS']),
-                                                 range(cfg['UE'])):
+    for (_ue, _int_ue, _bs) in itertools.product(range(K), range(K),
+                                                 range(B)):
 
-        _tmp = np.dot(np.dot(recv[:, :, _ue, _int_bs],
-                             weights[:, :, _ue, _int_bs]),
-                      recv[:, :, _ue, _int_bs].conj().T)
+        _tmp = np.dot(np.dot(recv['D2B'][:, :, _bs, _int_ue],
+                             weights['D2B'][:, :, _bs, _int_ue]),
+                      recv['D2B'][:, :, _bs, _int_ue].conj().T)
 
-        wcov[:, :, _bs] += np.dot(np.dot(chan[:, :, _ue, _bs].conj().T,
-                                         _tmp), chan[:, :, _ue, _bs])
+        tmp_chan = chan['D2B'][:, :, _bs, _ue]
+        wcov[:, :, _ue] += np.dot(np.dot(tmp_chan.conj().T, _tmp), tmp_chan)
+
+    for (_ue, _ue_pri) in itertools.product(range(K), range(K)):
+
+        _tmp = np.dot(np.dot(recv['D2D'][0][:, :, _ue_pri],
+                             weights['D2D'][0][:, :, _ue_pri]),
+                      recv['D2D'][0][:, :, _ue_pri].conj().T)
+
+        tmp_chan = chan['D2D'][:, :, _ue_pri, _ue]
+        wcov[:, :, _ue] += np.dot(np.dot(tmp_chan.conj().T, _tmp), tmp_chan)
 
     # Effective downlink channels
-    wchan = np.zeros((cfg['TX'], cfg['SK'], cfg['UE'], cfg['BS']),
-                     dtype='complex')
+    wchan = {}
+    wchan['D2B'] = np.zeros((n_dx, n_sk, B, K), dtype='complex')
+    wchan['D2D'] = np.zeros((n_dx, n_dx, K), dtype='complex')
 
-    for (_ue, _bs) in itertools.product(range(cfg['UE']), range(cfg['BS'])):
-        wchan[:, :, _ue, _bs] = np.dot(np.dot(chan[:, :, _ue, _bs].conj().T,
-                                              recv[:, :, _ue, _bs]),
-                                       weights[:, :, _ue, _bs])
+    for (_ue, _bs) in itertools.product(range(K), range(B)):
+        tmp_chan = chan['D2B'][:, :, _bs, _ue]
+        _wc = np.dot(np.dot(tmp_chan.conj().T, recv['D2B'][:, :, _bs, _ue]),
+                     weights['D2B'][:, :, _bs, _ue])
 
-    wchan = np.reshape(wchan, [cfg['TX'], cfg['SK']*cfg['UE'], cfg['BS']],
-                       order='F')
+        wchan['D2B'][:, :, _bs, _ue] = _wc
+
+    for _ue in range(K):
+        tmp_chan = chan['D2D'][:, :, _ue, _ue]
+        _wc = np.dot(np.dot(tmp_chan.conj().T,
+                            recv['D2D'][0][:, :, _ue]),
+                     weights['D2D'][0][:, :, _ue])
+
+        wchan['D2D'][:, :, _ue] = _wc
+
+    wchan['D2B'] = wchan['D2B'].reshape((n_dx, n_sk*B, K), order='F')
 
     # Perform the power bisection for each BS separately
-    for _bs in range(cfg['BS']):
-        prec[:, :, _bs] = np.linalg.solve((wcov[:, :, _bs]), wchan[:, :, _bs])
+    for _ue in range(K):
+        prec['D2B'][:, :, _ue] = np.dot(np.linalg.pinv(wcov[:, :, _ue]),
+                                        wchan['D2B'][:, :, _ue])
+        prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(wcov[:, :, _ue]),
+                                        wchan['D2D'][:, :, _ue])
 
-        if np.linalg.norm(prec[:, :, _bs][:]) <= np.sqrt(pwr_lim):
+        pwr = np.linalg.norm(prec['D2B'][:, :, _ue][:])**2 + \
+              np.linalg.norm(prec['D2D'][:, :, _ue][:])**2
+
+        if pwr <= pwr_lim['UE']:
             continue
 
         bounds = np.array([0, 10.])
@@ -163,23 +384,210 @@ def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
         while err > threshold:
             lvl = (bounds.sum()) / 2
 
-            prec[:, :, _bs] = np.linalg.solve((wcov[:, :, _bs] +
-                                               np.eye(cfg['TX'])*lvl),
-                                              wchan[:, :, _bs])
+            _wcov = wcov[:, :, _ue] + np.eye(n_dx)*lvl
 
-            err = np.abs(np.linalg.norm(prec[:, :, _bs][:]) - np.sqrt(pwr_lim))
+            prec['D2B'][:, :, _ue] = np.dot(np.linalg.pinv(_wcov),
+                                            wchan['D2B'][:, :, _ue])
+            prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(_wcov),
+                                            wchan['D2D'][:, :, _ue])
 
-            if np.linalg.norm(prec[:, :, _bs][:]) < np.sqrt(pwr_lim):
+            pwr = np.linalg.norm(prec['D2B'][:, :, _ue][:])**2 + \
+                np.linalg.norm(prec['D2D'][:, :, _ue][:])**2
+
+            err = pwr - pwr_lim['UE']
+
+            if pwr < pwr_lim['UE']:
                 bounds[1] = lvl
             else:
                 bounds[0] = lvl
-
-            if lvl < 1e-9:
-                break
 
             # Re-adjust the boundaries if the upper limit seems to low
             if np.abs(bounds[0] - bounds[1]) < 1e-10:
                 bounds[1] *= 10
 
-    return np.reshape(prec, [cfg['TX'], cfg['SK'], cfg['UE'], cfg['BS']],
-                      order='F')
+    prec['D2B'] = prec['D2B'].reshape((n_dx, n_sk, B, K), order='F')
+    prec['D2D'] = prec['D2D'].reshape((n_dx, n_dx, K), order='F')
+
+    return prec
+
+
+def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-6):
+    """ Utilize the weighted bisection algorithm to solve the weighted MSE
+        minimizing transmit beamformers for slot 2 subject to given per-BS sum
+        power constraint. """
+
+    # System configuration
+    (n_dx, n_bx, K, B) = chan['B2D'].shape
+    n_sk = min(n_dx, n_bx)
+
+    # The final precoders
+    prec = {}
+    prec['B2D'] = np.zeros((n_bx, n_sk*K, B), dtype='complex')
+    prec['D2D'] = np.zeros((n_dx, n_sk, K), dtype='complex')
+
+    # Weighted transmit covariance matrices
+    wcov = {}
+    wcov['BS'] = np.zeros((n_bx, n_bx, B), dtype='complex')
+    wcov['UE'] = np.zeros((n_dx, n_dx, K), dtype='complex')
+
+
+    # Base station to device
+    for (_ue, _int_bs, _bs) in itertools.product(range(K), range(B),
+                                                 range(B)):
+
+        _tmp = np.dot(np.dot(recv['B2D'][:, :, _ue, _int_bs],
+                             weights['B2D'][:, :, _ue, _int_bs]),
+                      recv['B2D'][:, :, _ue, _int_bs].conj().T)
+
+        tmp_chan = chan['B2D'][:, :, _ue, _bs]
+        wcov['BS'][:, :, _bs] += np.dot(np.dot(tmp_chan.conj().T, _tmp),
+                                        tmp_chan)
+
+    for (_ue, _bs) in itertools.product(range(K), range(B)):
+
+        _tmp = np.dot(np.dot(recv['D2D'][1][:, :, _ue],
+                             weights['D2D'][1][:, :, _ue]),
+                      recv['D2D'][1][:, :, _ue].conj().T)
+
+        tmp_chan = chan['B2D'][:, :, _ue, _bs]
+        wcov['BS'][:, :, _bs] += np.dot(np.dot(tmp_chan.conj().T, _tmp),
+                                        tmp_chan)
+
+    # Device to device
+    for (_ue, _ue_pri) in itertools.product(range(K), range(K)):
+
+        _tmp = np.dot(np.dot(recv['D2D'][1][:, :, _ue_pri],
+                             weights['D2D'][1][:, :, _ue_pri]),
+                      recv['D2D'][1][:, :, _ue_pri].conj().T)
+
+        tmp_chan = chan['D2D'][:, :, _ue_pri, _ue]
+        wcov['UE'][:, :, _ue] += np.dot(np.dot(tmp_chan.conj().T, _tmp),
+                                        tmp_chan)
+
+    for (_ue_pri, _bs, _ue) in itertools.product(range(K), range(B),
+                                                 range(K)):
+
+        _tmp = np.dot(np.dot(recv['B2D'][:, :, _ue_pri, _bs],
+                             weights['B2D'][:, :, _ue_pri, _bs]),
+                      recv['B2D'][:, :, _ue_pri, _bs].conj().T)
+
+        tmp_chan = chan['D2D'][:, :, _ue_pri, _ue]
+        wcov['UE'][:, :, _ue] += np.dot(np.dot(tmp_chan.conj().T, _tmp),
+                                        tmp_chan)
+
+    # Effective downlink channels
+    wchan = {}
+    wchan['B2D'] = np.zeros((n_bx, n_sk, K, B), dtype='complex')
+    wchan['D2D'] = np.zeros((n_dx, n_dx, K), dtype='complex')
+
+    for (_ue, _bs) in itertools.product(range(K), range(B)):
+        tmp_chan = chan['B2D'][:, :, _ue, _bs]
+        _wc = np.dot(np.dot(tmp_chan.conj().T, recv['B2D'][:, :, _ue, _bs]),
+                     weights['B2D'][:, :, _ue, _bs])
+
+        wchan['B2D'][:, :, _ue, _bs] = _wc
+
+    for _ue in range(K):
+        tmp_chan = chan['D2D'][:, :, _ue, _ue]
+        _wc = np.dot(np.dot(tmp_chan.conj().T,
+                            recv['D2D'][1][:, :, _ue]),
+                     weights['D2D'][1][:, :, _ue])
+
+        wchan['D2D'][:, :, _ue] = _wc
+
+    wchan['B2D'] = wchan['B2D'].reshape((n_bx, n_sk*K, B), order='F')
+
+    # Perform the power bisection for each BS separately
+    for _bs in range(B):
+        prec['B2D'][:, :, _bs] = np.dot(np.linalg.pinv(wcov['BS'][:, :, _bs]),
+                                        wchan['B2D'][:, :, _bs])
+
+        pwr = np.linalg.norm(prec['B2D'][:, :, _bs][:])**2
+
+        if pwr <= pwr_lim['BS']:
+            continue
+
+        bounds = np.array([0, 10.])
+
+        err = np.inf
+
+        while err > threshold:
+            lvl = (bounds.sum()) / 2
+
+            _wcov = wcov['BS'][:, :, _bs] + np.eye(n_bx)*lvl
+
+            prec['B2D'][:, :, _bs] = np.dot(np.linalg.pinv(_wcov),
+                                            wchan['B2D'][:, :, _bs])
+
+            pwr = np.linalg.norm(prec['B2D'][:, :, _bs][:])**2
+
+            err = pwr - pwr_lim['BS']
+
+            if pwr < pwr_lim['BS']:
+                bounds[1] = lvl
+            else:
+                bounds[0] = lvl
+
+            # Re-adjust the boundaries if the upper limit seems to low
+            if np.abs(bounds[0] - bounds[1]) < 1e-10:
+                bounds[1] *= 10
+
+    # Perform the power bisection for each BS separately
+    for _ue in range(K):
+        prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(wcov['UE'][:, :, _ue]),
+                                        wchan['D2D'][:, :, _ue])
+
+        pwr = np.linalg.norm(prec['D2D'][:, :, _ue][:])**2
+
+        if pwr <= pwr_lim['UE']:
+            continue
+
+        bounds = np.array([0, 10.])
+
+        err = np.inf
+
+        while err > threshold:
+            lvl = (bounds.sum()) / 2
+
+            _wcov = wcov['UE'][:, :, _ue] + np.eye(n_dx)*lvl
+
+            prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(_wcov),
+                                            wchan['D2D'][:, :, _ue])
+
+            pwr = np.linalg.norm(prec['D2D'][:, :, _ue][:])**2
+
+            err = pwr - pwr_lim['UE']
+
+            if pwr < pwr_lim['UE']:
+                bounds[1] = lvl
+            else:
+                bounds[0] = lvl
+
+            # Re-adjust the boundaries if the upper limit seems to low
+            if np.abs(bounds[0] - bounds[1]) < 1e-10:
+                bounds[1] *= 10
+
+    prec['B2D'] = prec['B2D'].reshape((n_bx, n_sk, K, B), order='F')
+    prec['D2D'] = prec['D2D'].reshape((n_dx, n_dx, K), order='F')
+
+    return prec
+
+
+def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
+    """ Utilize the weighted bisection algorithm to solve the weighted MSE
+    minimizing transmit beamformers subject to given sum power constraints. """
+
+    prec = {}
+    prec['D2D'] = [[], []]
+
+    prec1 = weighted_bisection1(chan, recv, weights, pwr_lim,
+                                threshold=threshold)
+    prec2 = weighted_bisection2(chan, recv, weights, pwr_lim,
+                                threshold=threshold)
+
+    prec['D2B'] = prec1['D2B']
+    prec['B2D'] = prec2['B2D']
+    prec['D2D'][0] = prec1['D2D']
+    prec['D2D'][1] = prec2['D2D']
+
+    return prec
