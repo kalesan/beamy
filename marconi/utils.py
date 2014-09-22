@@ -14,17 +14,17 @@ def sigcov(chan, prec, noise_pwr):
 
     cov = {}
 
-    cov_bs = np.zeros((n_bx, n_bx, B), dtype='complex')
+    cov['BS'] = np.zeros((n_bx, n_bx, B), dtype='complex')
 
-    cov_ue = np.array([None, None])
-    cov_ue[0] = np.zeros((n_dx, n_dx, K), dtype='complex')
-    cov_ue[1] = np.zeros((n_dx, n_dx, K), dtype='complex')
+    cov['UE'] = np.array([None, None])
+    cov['UE'][0] = np.zeros((n_dx, n_dx, K), dtype='complex')
+    cov['UE'][1] = np.zeros((n_dx, n_dx, K), dtype='complex')
 
     # Concatenated precoders
     prec_cat = {}
     prec_cat['B2D'] = np.reshape(prec['B2D'], [n_bx, n_sk*K, B], order='F')
     prec_cat['D2B'] = np.reshape(prec['D2B'], [n_dx, n_sk*B, K], order='F')
-    prec_cat['D2D'] = [[], []]
+    prec_cat['D2D'] = np.array([None, None])
     prec_cat['D2D'][0] = np.reshape(prec['D2D'][0], [n_dx, n_dx, K], order='F')
     prec_cat['D2D'][1] = np.reshape(prec['D2D'][1], [n_dx, n_dx, K], order='F')
 
@@ -32,50 +32,50 @@ def sigcov(chan, prec, noise_pwr):
 
     # Slot 1
     for _bs in range(B):
-        cov_bs[:, :, _bs] = np.eye(n_bx)*noise_pwr['BS']
+        cov['BS'][:, :, _bs] = np.eye(n_bx)*noise_pwr['BS']
 
         for _ue_tran in range(K):
             _pc = np.dot(chan['D2B'][:, :, _bs, _ue_tran],
                          prec_cat['D2D'][0][:, :, _ue_tran])
 
-            cov_bs[:, :, _bs] += np.dot(_pc, _pc.conj().transpose())
+            cov['BS'][:, :, _bs] += np.dot(_pc, _pc.conj().transpose())
 
             _pc = np.dot(chan['D2B'][:, :, _bs, _ue_tran],
                          prec_cat['D2B'][:, :, _ue_tran])
 
-            cov_bs[:, :, _bs] += np.dot(_pc, _pc.conj().transpose())
+            cov['BS'][:, :, _bs] += np.dot(_pc, _pc.conj().transpose())
 
     for _ue in range(K):
-        cov_ue[0][:, :, _ue] = np.eye(n_dx)*noise_pwr['UE']
+        cov['UE'][0][:, :, _ue] = np.eye(n_dx)*noise_pwr['UE']
 
         for _ue_tran in range(K):
             _pc = np.dot(chan['D2D'][:, :, _ue, _ue_tran],
                          prec_cat['D2D'][0][:, :, _ue_tran])
 
-            cov_ue[0][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
+            cov['UE'][0][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
 
             _pc = np.dot(chan['D2D'][:, :, _ue, _ue_tran],
                          prec_cat['D2B'][:, :, _ue_tran])
 
-            cov_ue[0][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
+            cov['UE'][0][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
 
     # Slot 2
     for _ue in range(K):
-        cov_ue[1][:, :, _ue] = np.eye(n_dx)*noise_pwr['UE']
+        cov['UE'][1][:, :, _ue] = np.eye(n_dx)*noise_pwr['UE']
 
         for _bs in range(B):
             _pc = np.dot(chan['B2D'][:, :, _ue, _bs],
                          prec_cat['B2D'][:, :, _bs])
 
-            cov_ue[1][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
+            cov['UE'][1][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
 
         for _ue_tran in range(K):
             _pc = np.dot(chan['D2D'][:, :, _ue, _ue_tran],
                          prec_cat['D2D'][1][:, :, _ue_tran])
 
-            cov_ue[1][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
+            cov['UE'][1][:, :, _ue] += np.dot(_pc, _pc.conj().transpose())
 
-    return {'UE': cov_ue, 'BS': cov_bs}
+    return cov
 
 
 def lmmse(chan, prec, noise_pwr, cov=None):
@@ -306,7 +306,7 @@ def rate(chan, prec, noise_pwr, cov=None, errm=None):
     return rates
 
 
-def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-6):
+def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-10):
     """ Utilize the weighted bisection algorithm to solve the weighted MSE
         minimizing transmit beamformers for slot 1 subject to given per-BS sum
         power constraint. """
@@ -318,7 +318,7 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-6):
     # The final precoders
     prec = {}
     prec['D2B'] = np.zeros((n_dx, n_sk*B, K), dtype='complex')
-    prec['D2D'] = np.zeros((n_dx, n_sk, K), dtype='complex')
+    prec['D2D'] = np.zeros((n_dx, n_dx, K), dtype='complex')
 
     # Weighted transmit covariance matrices
     wcov = np.zeros((n_dx, n_dx, K), dtype='complex')
@@ -356,8 +356,7 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-6):
 
     for _ue in range(K):
         tmp_chan = chan['D2D'][:, :, _ue, _ue]
-        _wc = np.dot(np.dot(tmp_chan.conj().T,
-                            recv['D2D'][0][:, :, _ue]),
+        _wc = np.dot(np.dot(tmp_chan.conj().T, recv['D2D'][0][:, :, _ue]),
                      weights['D2D'][0][:, :, _ue])
 
         wchan['D2D'][:, :, _ue] = _wc
@@ -377,7 +376,8 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-6):
         if pwr <= pwr_lim['UE']:
             continue
 
-        bounds = np.array([0, 10.])
+        upper_bound = 10.
+        bounds = np.array([0, upper_bound])
 
         err = np.inf
 
@@ -392,9 +392,9 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-6):
                                             wchan['D2D'][:, :, _ue])
 
             pwr = np.linalg.norm(prec['D2B'][:, :, _ue][:])**2 + \
-                np.linalg.norm(prec['D2D'][:, :, _ue][:])**2
+                  np.linalg.norm(prec['D2D'][:, :, _ue][:])**2
 
-            err = pwr - pwr_lim['UE']
+            err = np.linalg.norm(pwr - pwr_lim['UE'])**2
 
             if pwr < pwr_lim['UE']:
                 bounds[1] = lvl
@@ -402,16 +402,17 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-6):
                 bounds[0] = lvl
 
             # Re-adjust the boundaries if the upper limit seems to low
-            if np.abs(bounds[0] - bounds[1]) < 1e-10:
-                bounds[1] *= 10
+            if np.abs(upper_bound - bounds[1]) < 1e-8:
+                upper_bound *= 10
+                bounds = np.array([0, upper_bound])
 
     prec['D2B'] = prec['D2B'].reshape((n_dx, n_sk, B, K), order='F')
-    prec['D2D'] = prec['D2D'].reshape((n_dx, n_dx, K), order='F')
+    # prec['D2D'] = prec['D2D'].reshape((n_dx, n_dx, K), order='F')
 
     return prec
 
 
-def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-6):
+def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
     """ Utilize the weighted bisection algorithm to solve the weighted MSE
         minimizing transmit beamformers for slot 2 subject to given per-BS sum
         power constraint. """
@@ -423,7 +424,7 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-6):
     # The final precoders
     prec = {}
     prec['B2D'] = np.zeros((n_bx, n_sk*K, B), dtype='complex')
-    prec['D2D'] = np.zeros((n_dx, n_sk, K), dtype='complex')
+    prec['D2D'] = np.zeros((n_dx, n_dx, K), dtype='complex')
 
     # Weighted transmit covariance matrices
     wcov = {}
@@ -432,8 +433,7 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-6):
 
 
     # Base station to device
-    for (_ue, _int_bs, _bs) in itertools.product(range(K), range(B),
-                                                 range(B)):
+    for (_ue, _int_bs, _bs) in itertools.product(range(K), range(B), range(B)):
 
         _tmp = np.dot(np.dot(recv['B2D'][:, :, _ue, _int_bs],
                              weights['B2D'][:, :, _ue, _int_bs]),
@@ -489,8 +489,7 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-6):
 
     for _ue in range(K):
         tmp_chan = chan['D2D'][:, :, _ue, _ue]
-        _wc = np.dot(np.dot(tmp_chan.conj().T,
-                            recv['D2D'][1][:, :, _ue]),
+        _wc = np.dot(np.dot(tmp_chan.conj().T, recv['D2D'][1][:, :, _ue]),
                      weights['D2D'][1][:, :, _ue])
 
         wchan['D2D'][:, :, _ue] = _wc
@@ -507,7 +506,8 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-6):
         if pwr <= pwr_lim['BS']:
             continue
 
-        bounds = np.array([0, 10.])
+        upper_bound = 10.
+        bounds = np.array([0, upper_bound])
 
         err = np.inf
 
@@ -516,12 +516,12 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-6):
 
             _wcov = wcov['BS'][:, :, _bs] + np.eye(n_bx)*lvl
 
-            prec['B2D'][:, :, _bs] = np.dot(np.linalg.pinv(_wcov),
-                                            wchan['B2D'][:, :, _bs])
+            prec['B2D'][:, :, _bs] = np.linalg.solve(_wcov,
+                                                     wchan['B2D'][:, :, _bs])
 
             pwr = np.linalg.norm(prec['B2D'][:, :, _bs][:])**2
 
-            err = pwr - pwr_lim['BS']
+            err = np.abs(pwr - pwr_lim['BS'])
 
             if pwr < pwr_lim['BS']:
                 bounds[1] = lvl
@@ -529,20 +529,22 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-6):
                 bounds[0] = lvl
 
             # Re-adjust the boundaries if the upper limit seems to low
-            if np.abs(bounds[0] - bounds[1]) < 1e-10:
-                bounds[1] *= 10
+            if np.abs(upper_bound - bounds[1]) < 1e-8:
+                upper_bound *= 10
+                bounds = np.array([0, upper_bound])
 
     # Perform the power bisection for each BS separately
     for _ue in range(K):
-        prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(wcov['UE'][:, :, _ue]),
-                                        wchan['D2D'][:, :, _ue])
+        prec['D2D'][:, :, _ue] = np.linalg.solve(wcov['UE'][:, :, _ue],
+                                                 wchan['D2D'][:, :, _ue])
 
         pwr = np.linalg.norm(prec['D2D'][:, :, _ue][:])**2
 
         if pwr <= pwr_lim['UE']:
             continue
 
-        bounds = np.array([0, 10.])
+        upper_bound = 10.
+        bounds = np.array([0, upper_bound])
 
         err = np.inf
 
@@ -556,7 +558,7 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-6):
 
             pwr = np.linalg.norm(prec['D2D'][:, :, _ue][:])**2
 
-            err = pwr - pwr_lim['UE']
+            err = np.abs(pwr - pwr_lim['UE'])
 
             if pwr < pwr_lim['UE']:
                 bounds[1] = lvl
@@ -564,11 +566,12 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-6):
                 bounds[0] = lvl
 
             # Re-adjust the boundaries if the upper limit seems to low
-            if np.abs(bounds[0] - bounds[1]) < 1e-10:
-                bounds[1] *= 10
+            if np.abs(upper_bound - bounds[1]) < 1e-8:
+                upper_bound *= 10
+                bounds = np.array([0, upper_bound])
 
     prec['B2D'] = prec['B2D'].reshape((n_bx, n_sk, K, B), order='F')
-    prec['D2D'] = prec['D2D'].reshape((n_dx, n_dx, K), order='F')
+    # prec['D2D'] = prec['D2D'].reshape((n_dx, n_dx, K), order='F')
 
     return prec
 

@@ -4,6 +4,7 @@
 import numpy as np
 import scipy.constants
 
+import logging
 
 class ChannelModel(object):
     """Docstring for ChannelModel. """
@@ -12,14 +13,17 @@ class ChannelModel(object):
         """ Constructor for the channel models.
 
         Kwargs:
-            gain_model (str): Channel gain model. Supported models are "CellSep"
-                and "Wrap7".
-            cellsep (double): Cell separation in dB.
+            cellsep (double): Inter-cell separation [dB].
+            intrasep (double): Intra-cell separation (BS-to-UE) [dB].
+            termsep (double): Terminal separation (UE-to-UE) (pair-wise) [dB].
 
         """
 
-        self.gain_model = kwargs.get('gain_model', 'CellSep')
-        self.cellsep = kwargs.get('cellsep', 3)
+        self.logger = logging.getLogger(__name__)
+
+        self.cellsep = kwargs.get('cellsep', -3)
+        self.intrasep = kwargs.get('intrasep', 0)
+        self.termsep = kwargs.get('intrasep', -4)
 
 
 class GaussianModel(object):
@@ -69,31 +73,29 @@ class ClarkesModel(ChannelModel):
         # Angular Doppler frequencies
         self.phii = 2*np.pi * self.fd * np.cos(self.alpha)
 
-    def generate(self, sysparams, **kwargs):
-        """ Generate time-correlated Rayleigh fading channels.
+    def genmat(self, sysparams, gains=None, iterations=1):
+        """TODO: Docstring for genmat.
 
         Args:
-            sysparams (tuple): System parameters (RX, TX, K, B).
+            n_rx (int): Number of receive antennas.
+            n_tx (int): Number of transmit antennas.
+            gains (matrix): Channel gain matrix [dB].
+            iterations (int) Channel realizations.
 
-        Kwargs:
-            iterations (int): Number of beamformer iterations.
-
-        Returns: Array of channel matrices.
+        Returns: Channel array.
 
         """
-        (rx, tx, K, B) = sysparams
 
-        # Channel gains
-        # @todo: Actual channel gain modelling
+        (n_rx, n_tx, K, B) = sysparams
 
-        iterations = kwargs.get('iterations', 1)
-        gains = kwargs.get('gains', np.ones((K, B)))
+        if gains is None:
+            gains = np.zeros((K, B))
 
         gains = 10**(gains / 10)
 
         gains = gains.reshape((K*B, 1), order='F')
 
-        path_powers = np.kron(np.kron(1, gains), np.ones((rx*tx, 1)))
+        path_powers = np.kron(np.kron(1, gains), np.ones((n_rx*n_tx, 1)))
 
         # Timing vector
         tv = np.r_[0:iterations] * self.ts
@@ -112,4 +114,54 @@ class ClarkesModel(ChannelModel):
             paths[pth, :] = np.sqrt(path_powers[pth] / self.npath) * \
                 np.sum(np.exp(1j*theta), 0)
 
-        return paths.reshape((rx, tx, K, B, iterations), order='F')
+        return paths.reshape((n_rx, n_tx, K, B, iterations), order='F')
+
+
+    def generate(self, sysparams, **kwargs):
+        """ Generate time-correlated Rayleigh fading channels.
+
+        Args:
+            sysparams (tuple): System parameters (RX, TX, K, B).
+
+        Kwargs:
+            iterations (int): Number of beamformer iterations.
+
+        Returns: Array of channel matrices.
+
+        """
+        (n_dx, n_bx, K, B) = sysparams
+
+        iterations = kwargs.get('iterations', 1)
+
+        gains = np.zeros((K,B))
+
+        chan = {}
+
+        # BS-UE channels
+        self.logger.info("Generating channels")
+        self.logger.info("* BS-UE")
+
+        gains = self.intrasep * np.ones((K, B))
+
+        chan['B2D'] = self.genmat((n_dx, n_bx, K, B), gains=gains,
+                                  iterations=iterations)
+
+        self.logger.info("* UE-BS")
+        chan['D2B'] = chan['B2D'].transpose(1, 0, 3, 2, 4)
+
+        # BS-BS channels
+        gains = 0 * np.ones((B, B))
+
+        self.logger.info("* BS-BS")
+        chan['B2B'] = self.genmat((n_bx, n_bx, B, B), gains=gains,
+                                  iterations=iterations)
+
+        # UE-UE channels
+        self.logger.info("* UE-UE")
+        gains = self.termsep * np.ones((K, K))
+        for k in range(K):
+            gains[k, k] = 0
+
+        chan['D2D'] = self.genmat((n_dx, n_dx, K, K), iterations=iterations)
+
+        return chan

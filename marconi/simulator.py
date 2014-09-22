@@ -31,12 +31,12 @@ class Simulator(object):
         self.resfile = kwargs.get('resfile', 'res.npz')
 
         self.pwr_lim = {}
-        self.pwr_lim['BS'] = 1
-        self.pwr_lim['UE'] = 1
+        self.pwr_lim['BS'] = 10**(kwargs.get('SNR', 20)/10)
+        self.pwr_lim['UE'] = 10**(kwargs.get('SNR', 20)/10)
 
         self.noise_pwr = {}
-        self.noise_pwr['BS'] = 10**-(kwargs.get('SNR', 20)/10)
-        self.noise_pwr['UE'] = 10**-(kwargs.get('SNR', 20)/10)
+        self.noise_pwr['BS'] = 1
+        self.noise_pwr['UE'] = 1
 
         self.static_channel = kwargs.get('static_channel', True)
         self.rate_conv_tol = 1e-4
@@ -121,8 +121,7 @@ class Simulator(object):
         """ Iteratively generate the receive and transmit beaformers for the
         given channel matrix. """
 
-        # TODO: Generate beamformers for all scenarios. Zeros for the unused
-        # ones.
+        self.prec.reset()
 
         logger = logging.getLogger(__name__)
 
@@ -215,32 +214,14 @@ class Simulator(object):
         # Initialize the random number generator
         np.random.seed(self.seed)
 
-        (rx, tx, K, B) = self.sysparams
-
         stats = None
 
         for rel in range(self.iterations['channel']):
             logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
 
-            chan = {}
-
             iterations = self.iterations['beamformer']
 
-            # BS-UE channels
-            gains = -3*np.ones((K, B))
-            chan['B2D'] = self.chanmod.generate((rx, tx, K, B), gains=gains,
-                                                iterations=iterations)
-
-            chan['D2B'] = chan['B2D'].transpose(1, 0, 3, 2, 4)
-
-
-            # BS-BS channels
-            chan['B2B'] = self.chanmod.generate((tx, tx, B, B),
-                                                iterations=iterations)
-
-            # UE-UE channels
-            chan['D2D'] = self.chanmod.generate((rx, rx, K, K),
-                                                iterations=iterations)
+            chan = self.chanmod.generate(self.sysparams, iterations=iterations)
 
             beamformers = self.iterate_beamformers(chan)
 

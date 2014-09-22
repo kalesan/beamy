@@ -36,6 +36,12 @@ class Precoder(object):
             self.K = self.B
             self.B = K
 
+        self.reset()
+
+    def reset(self):
+        """Reinitialize precoder parameters / state."""
+        pass
+
     def normalize(self, prec, pwr_lim):
         """ Normalize the prec matrix along the last axis according to the given
             power constraint.
@@ -99,7 +105,7 @@ class PrecoderGaussian(Precoder):
 class PrecoderWMMSE(Precoder):
     """Weighted minimum MSE (WMMSE) precoder design."""
 
-    def mse_weights(self, chan, recv, prec_prev, noise_pwr):
+    def mse_weights(self, chan, recv, prec_prev, noise_pwr, errm=None):
         (n_dx, n_bx, K, B) = (self.n_dx, self.n_bx, self.K, self.B)
         n_sk = min(n_dx, n_bx)
 
@@ -111,7 +117,8 @@ class PrecoderWMMSE(Precoder):
         weights['D2D'][0] = np.zeros((n_dx, n_dx, K), dtype='complex')
         weights['D2D'][1] = np.zeros((n_dx, n_dx, K), dtype='complex')
 
-        errm = utils.mse(chan, recv, prec_prev, noise_pwr)
+        if errm is None:
+            errm = utils.mse(chan, recv, prec_prev, noise_pwr)
 
         for (_ue, _bs) in itertools.product(range(self.K), range(self.B)):
             weights['B2D'][:, :, _ue, _bs] = np.linalg.pinv(
@@ -128,6 +135,12 @@ class PrecoderWMMSE(Precoder):
 
         return weights
 
+    def reset(self):
+        """Reinitialize precoder parameters / state."""
+
+        self.lvl = np.ones((self.K, self.B)) * 0.1
+        self.stepsize = 0.05
+
     def generate(self, *args, **kwargs):
         """ Generate the WMMSE precoders. """
 
@@ -141,20 +154,26 @@ class PrecoderWMMSE(Precoder):
         err = np.Inf
         err_prev = np.Inf
 
-        lvl = np.ones((K, B)) * 0.5
-        STEP_BASE = 1e-5
-        stepsize = 1
-
         itr = 1
 
-        while np.linalg.norm(err) > self.precision:
-            errm = utils.mse(chan, recv, prec_prev, noise_pwr)
+        errm = utils.mse(chan, recv, prec_prev, noise_pwr)
 
-            weight = self.mse_weights(chan, recv, prec_prev, noise_pwr)
+        weight0 = self.mse_weights(chan, recv, prec_prev, noise_pwr,
+                                   errm=errm)
+
+        #self.stepsize *= 1.1
+
+        while np.abs(err) > self.precision:
+            weight = {}
+            weight['B2D'] = weight0['B2D'].copy()
+            weight['D2B'] = weight0['D2B'].copy()
+            weight['D2D'] = [[], []]
+            weight['D2D'][0] = weight0['D2D'][0].copy()
+            weight['D2D'][1] = weight0['D2D'][1].copy()
 
             for (_ue, _bs) in itertools.product(range(K), range(B)):
-                weight['B2D'][:, :, _ue, _bs] *= lvl[_ue, _bs]
-                weight['D2B'][:, :, _bs, _ue] *= (1 - lvl[_ue, _bs])
+                weight['B2D'][:, :, _ue, _bs] *= self.lvl[_ue, _bs]
+                weight['D2B'][:, :, _bs, _ue] *= (1 - self.lvl[_ue, _bs])
 
             prec = utils.weighted_bisection(chan, recv, weight, pwr_lim,
                                             threshold=self.precision)
@@ -165,27 +184,34 @@ class PrecoderWMMSE(Precoder):
 
             err = rates['D2B'][:].sum() - rates['B2D'][:].sum()
 
-            if np.abs(err - err_prev) < 1e-4:
-                stepsize = 1.01*stepsize
-            else:
-                stepsize = 1/np.sqrt(itr)
-
-            lvl = lvl + stepsize*(err)
-
-            # Mostly like D2D rates are zero and we can stop
-            if np.linalg.norm(lvl[:]) > 1e10:
-                break
+            self.lvl = self.lvl + self.stepsize*(err)
 
             if np.mod(itr, 100) == 0:
-                self.logger.debug("err: %f, lvl: %f (%f), r1: %f, r2: %f " +
-                                  "r3: %f, r4: %f", np.linalg.norm(err),
-                                   np.linalg.norm(lvl[:]), stepsize,
+                self.logger.debug("[%d] err: %f, lvl: %f (%f), r1: %f, " +
+                                  "r2: %f r3: %f, r4: %f", itr,
+                                   np.linalg.norm(err),
+                                   np.linalg.norm(self.lvl[:]), self.stepsize,
                                    rates['D2B'][:].sum(), rates['B2D'][:].sum(),
                                    rates['D2D'][0][:].sum(),
                                    rates['D2D'][1][:].sum())
 
             itr += 1
             err_prev = err
+
+            if np.mod(itr, 100) == 0:
+                self.stepsize *= 0.85
+
+            if itr > 1000:
+                break
+
+            if self.stepsize < self.precision:
+                break
+
+            #self.stepsize = max(self.stepsize, 0.5*np.abs(err))
+
+
+            if np.linalg.norm(self.lvl[:]) > 1:
+                break
 
         return prec
 
