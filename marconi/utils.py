@@ -68,7 +68,7 @@ def mse(chan, recv, prec, noise_pwr, cov=None):
             _tmp = np.dot(recv[:, :, _ue, _bs].conj().T,
                           np.dot(chan[:, :, _ue, _bs], prec[:, :, _ue, _bs]))
 
-            errm[:, :, _ue, _bs] = np.eye(n_sk) - 2*np.real(_tmp)
+            errm[:, :, _ue, _bs] = np.eye(n_sk) - _tmp - _tmp.conj().T
             errm[:, :, _ue, _bs] += noise_pwr * \
                 np.dot(recv[:, :, _ue, _bs].conj().T, recv[:, :, _ue, _bs])
 
