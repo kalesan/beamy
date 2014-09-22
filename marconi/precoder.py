@@ -36,6 +36,9 @@ class Precoder(object):
             self.n_ue = self.n_bs
             self.n_bs = n_ue
 
+        # Initialize (reset) precoder state
+        self.reset()
+
     def normalize(self, prec, pwr_lim):
         """ Normalize the prec matrix to have per BS power constraint pwr_lim"""
         for _bs in range(self.n_bs):
@@ -48,6 +51,10 @@ class Precoder(object):
 
     def generate(self, *_args, **kwargs):
         """ This method should be overriden by the actual precoder design."""
+        pass
+
+    def reset(self):
+        """ Resets the precoder state and parameters. """
         pass
 
 
@@ -270,6 +277,10 @@ class PrecoderSDP(Precoder):
     """ Joint transceiver beamformer design based on SDP reformulation and
         successive linear approximation of the original problem. """
 
+    def reset(self):
+        """ Resets the precoder state and parameters. """
+        self.lvl = None
+
     def blkdiag(self, m_array):
         """ Block diagonalize [N1 N2 Y X] as X diagonal N1*Y-by-N2*Y blocks  """
 
@@ -391,8 +402,15 @@ class PrecoderSDP(Precoder):
 
         """
 
-        upper_bound = 10.
-        bounds = np.array([0, upper_bound])
+        if self.lvl is not None:
+            # 10%-bounds around the previous point
+            upper_bound = self.lvl*1.1
+            lower_bound = self.lvl*0.9
+            bounds = np.array([lower_bound, upper_bound])
+        else:
+            upper_bound = 10.
+            lower_bound = 0.
+            bounds = np.array([lower_bound, upper_bound])
 
         pnew = np.Inf
 
@@ -404,43 +422,48 @@ class PrecoderSDP(Precoder):
 
         while err > self.precision:
             if method == "bisection":
-                lvl = bounds.sum() / 2
+                self.lvl = bounds.sum() / 2
 
             # Picos is sandbox into separate process to ensure proper memory
             # management.
             queue = Queue()
             p_sandbox = Process(target=self.solve,
-                                args=(chan, recv, weights, lvl, tol, queue))
-            # ropt = self.solve(chan, recv, weights, lvl, tol)
+                                args=(chan, recv, weights, self.lvl, tol, queue))
+            # ropt = self.solve(chan, recv, weights, self.lvl, tol)
             p_sandbox.start()
             p_sandbox.join()
             ropt = queue.get()
 
-            prec = self.precoder(chan, ropt, weights, lvl)
+            prec = self.precoder(chan, ropt, weights, self.lvl)
 
             # Compute power
             pnew = np.linalg.norm(prec[:])**2
 
             if method == "subgradient":
-                lvl = max(1e-10, lvl + step/np.sqrt(itr)*(pnew - self.pwr_lim))
+                self.lvl = max(1e-10, self.lvl + step/np.sqrt(itr)*(pnew - self.pwr_lim))
             else:
                 if pnew > self.pwr_lim:
-                    bounds[0] = lvl
+                    bounds[0] = self.lvl
                 else:
-                    bounds[1] = lvl
+                    bounds[1] = self.lvl
 
             err = np.abs(pnew - self.pwr_lim)
 
-            self.logger.debug("%d: lvl: %f P: %f err: %f bnd: %f", itr, lvl,
+            self.logger.debug("%d: self.lvl: %f P: %f err: %f bnd: %f", itr, self.lvl,
                               pnew, err, np.abs(bounds[0] - bounds[1]))
 
             if np.abs(bounds[0] - bounds[1]) < 1e-10:
                 if np.abs(upper_bound - bounds[1]) < 1e-9:
                     upper_bound *= 10
-                    bounds = np.array([0, upper_bound])
+                    lower_bound /= 10
+                    bounds = np.array([lower_bound, upper_bound])
+                elif np.abs(lower_bound - bounds[0]) < 1e-9:
+                    upper_bound *= 10
+                    lower_bound /= 10
+                    bounds = np.array([lower_bound, upper_bound])
                 else:
                     tol *= 10
-                    bounds = np.array([0, upper_bound])
+                    bounds = np.array([lower_bound, upper_bound])
 
             itr += 1
 

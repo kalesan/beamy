@@ -80,6 +80,8 @@ class Simulator(object):
         """ Iteratively generate the receive and transmit beaformers for the
         given channel matrix. """
 
+        self.prec.reset()
+
         logger = logging.getLogger(__name__)
 
         (n_rx, n_tx, n_ue, n_bs) = chan_full.shape[0:4]
