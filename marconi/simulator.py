@@ -26,6 +26,9 @@ class Simulator(object):
         self.iterations = {'channel': kwargs.get('realizations', 20),
                            'beamformer': kwargs.get('biterations', 50)}
 
+        self.active_links = kwargs.get('active_links',
+                                       {'BS': True, 'D2D': True})
+
         self.seed = kwargs.get('seed', 1841)
 
         self.resfile = kwargs.get('resfile', 'res.npz')
@@ -157,20 +160,25 @@ class Simulator(object):
         rnd_prec = precoder.PrecoderGaussian((n_dx, n_bx, n_ue, n_bs))
         iprec = rnd_prec.generate(pwr_lim_bs=self.pwr_lim)
 
-        prec['D2B'][:, :, :, :, 0] = iprec['D2B']
-        prec['B2D'][:, :, :, :, 0] = iprec['B2D']
-        prec['D2D'][0][:, :, :, 0] = iprec['D2D'][0]
-        prec['D2D'][1][:, :, :, 0] = iprec['D2D'][1]
+        if self.active_links['BS']:
+            prec['D2B'][:, :, :, :, 0] = iprec['D2B']
+            prec['B2D'][:, :, :, :, 0] = iprec['B2D']
+        else:
+            iprec['D2B'] = prec['D2B'][:, :, :, :, 0]
+            iprec['B2D'] = prec['B2D'][:, :, :, :, 0]
+
+        if self.active_links['D2D']:
+            prec['D2D'][0][:, :, :, 0] = iprec['D2D'][0]
+            prec['D2D'][1][:, :, :, 0] = iprec['D2D'][1]
+        else:
+            iprec['D2D'][0] = prec['D2D'][0][:, :, :, 0]
+            iprec['D2D'][1] = prec['D2D'][1][:, :, :, 0]
 
         ichan = {}
         ichan['B2D'] = chan_all['B2D'][:, :, :, :, 0]
         ichan['D2B'] = chan_all['D2B'][:, :, :, :, 0]
         ichan['D2D'] = chan_all['D2D'][:, :, :, :, 0]
         irecv = utils.lmmse(ichan, iprec, self.noise_pwr)
-        recv['D2B'][:, :, :, :, 0] = irecv['D2B']
-        recv['B2D'][:, :, :, :, 0] = irecv['B2D']
-        recv['D2D'][0][:, :, :, 0] = irecv['D2D'][0]
-        recv['D2D'][1][:, :, :, 0] = irecv['D2D'][1]
 
         rate_prev = np.inf
 
