@@ -23,7 +23,7 @@ class ChannelModel(object):
 
         self.cellsep = kwargs.get('cellsep', -3)
         self.intrasep = kwargs.get('intrasep', 0)
-        self.termsep = kwargs.get('intrasep', -4)
+        self.termsep = kwargs.get('termsep', -4)
 
 
 class GaussianModel(object):
