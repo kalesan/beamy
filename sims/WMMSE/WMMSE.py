@@ -5,6 +5,7 @@ sys.path.append("../../marconi")
 
 import logging
 from simulator import Simulator
+from chanmod import ClarkesModel
 
 import precoder
 
@@ -29,28 +30,54 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 ####
-realizations = 25
-biterations = 50
+realizations = 50
+biterations = 100
 
 
-def simulate(_rx, _tx, _K, _B, _SNR):
+def simulate(_rx, _tx, _K, _B, _SNR, chmod):
     sparams = (_rx, _tx, _K, _B)
 
-    wmmse_res_file = "WMMSE-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    act = {'BS': True, 'D2D': False}
+    wmmse_res_file = "WMMSE-BS-%d-%d-%d-%d-%d-[%d].npz" % \
+        (_rx, _tx, _K, _B, _SNR, chmod.termsep)
+
     sim = Simulator(precoder.PrecoderWMMSE(sparams), sysparams=sparams,
                     realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR)
+                    resfile=wmmse_res_file, SNR=_SNR, channel_model=chmod,
+                    active_links=act)
+
+    sim.run()
+
+    act = {'BS': False, 'D2D': True}
+    wmmse_res_file = "WMMSE-D2D-%d-%d-%d-%d-%d-[%d].npz" % \
+        (_rx, _tx, _K, _B, _SNR, chmod.termsep)
+
+    sim = Simulator(precoder.PrecoderWMMSE(sparams), sysparams=sparams,
+                    realizations=realizations, biterations=biterations,
+                    resfile=wmmse_res_file, SNR=_SNR, channel_model=chmod,
+                    active_links=act)
+
+    sim.run()
+
+    act = {'BS': True, 'D2D': True}
+    wmmse_res_file = "WMMSE-D2D-%d-%d-%d-%d-%d-[%d].npz" % \
+        (_rx, _tx, _K, _B, _SNR, chmod.termsep)
+
+    sim = Simulator(precoder.PrecoderWMMSE(sparams), sysparams=sparams,
+                    realizations=realizations, biterations=biterations,
+                    resfile=wmmse_res_file, SNR=_SNR, channel_model=chmod,
+                    active_links=act)
 
     sim.run()
 
 
 if __name__ == '__main__':
     # The simulation cases
-    B = 1
-    K = 4
-    tx = 4
-    rx = 2
+    (rx, tx, K, B, SNR, chmod) = (2, 4, 1, 1, 5, ClarkesModel(termsep=0))
+    simulate(rx, tx, K, B, SNR, chmod)
 
-    SNR = 20
+    (rx, tx, K, B, SNR, chmod) = (2, 4, 1, 1, 5, ClarkesModel(termsep=-3))
+    simulate(rx, tx, K, B, SNR, chmod)
 
-    simulate(rx, tx, K, B, SNR)
+    (rx, tx, K, B, SNR, chmod) = (2, 4, 2, 1, 5, ClarkesModel(termsep=0))
+    simulate(rx, tx, K, B, SNR, chmod)
