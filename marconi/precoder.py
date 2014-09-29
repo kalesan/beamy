@@ -414,8 +414,6 @@ class PrecoderSDP2(Precoder):
         # Solve the problem
         prob.solve(verbose=False, solver=cvx.SCS)
 
-        import ipdb; ipdb.set_trace()  # XXX BREAKPOINT
-
         ropt = np.array(ropt_re.value) + 1j*np.array(ropt_im.value)
 
         if queue is None:
