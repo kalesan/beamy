@@ -4,9 +4,9 @@
 import numpy as np
 import scipy.constants
 
-import logging
+import gainmod
 
-from itertools import product
+import logging
 
 
 class ChannelModel(object):
@@ -23,10 +23,6 @@ class ChannelModel(object):
         """
 
         self.logger = logging.getLogger(__name__)
-
-        self.cellsep = kwargs.get('cellsep', -3)
-        self.intrasep = kwargs.get('intrasep', 0)
-        self.termsep = kwargs.get('termsep', -4)
 
 
 class GaussianModel(object):
@@ -63,6 +59,8 @@ class ClarkesModel(ChannelModel):
         carrier_freq_Hz = kwargs.get('carrier_freq_Hz', 2e9)
         npath = kwargs.get('npath', 300)
 
+        self.gainmod = kwargs.get('gainmod', gainmod.Uniform1()))
+
         self.ts = 1 / freq_sym_Hz  # Sample rate
         self.vel = speed_kmh / 3.6  # Velocity [m/s]
         self.fd = carrier_freq_Hz * (self.vel / scipy.constants.c)
@@ -98,7 +96,8 @@ class ClarkesModel(ChannelModel):
 
         path_powers = np.kron(np.kron(1, gains), np.ones((n_rx*n_tx, 1)))
 
-        # Timing vector tv = np.r_[0:iterations] * self.ts
+        # Timing vector
+        tv = np.r_[0:iterations] * self.ts
         tv = tv.reshape(iterations, 1)
 
         # Subpath complex phase evolution (N x nsamples)
@@ -116,7 +115,6 @@ class ClarkesModel(ChannelModel):
 
         return paths.reshape((n_rx, n_tx, K, B, iterations), order='F')
 
-
     def generate(self, sysparams, **kwargs):
         """ Generate time-correlated Rayleigh fading channels.
 
@@ -133,9 +131,9 @@ class ClarkesModel(ChannelModel):
 
         iterations = kwargs.get('iterations', 1)
 
-        gains = np.zeros((K,B))
+        gains = np.zeros((K, B))
 
-        wrap7(K,300)
+        gains = gainmod.unif_single_cell(K, 100)
 
         chan = {}
 
@@ -143,30 +141,31 @@ class ClarkesModel(ChannelModel):
         self.logger.info("Generating channels")
         self.logger.info("* BS-UE")
 
-        gains = self.intrasep * np.ones((K, B))
-        gains = 10**(gains / 10)
+        # gains = self.intrasep * np.ones((K, B))
+        # gains = 10**(gains / 10)
 
-        chan['B2D'] = self.genmat((n_dx, n_bx, K, B), gains=gains,
+        chan['B2D'] = self.genmat((n_dx, n_bx, K, B), gains=gains['B2D'],
                                   iterations=iterations)
 
         self.logger.info("* UE-BS")
         chan['D2B'] = chan['B2D'].transpose(1, 0, 3, 2, 4)
 
         # BS-BS channels
-        gains = 0 * np.ones((B, B))
-        gains = 10**(gains / 10)
+        # gains = 0 * np.ones((B, B))
+        # gains = 10**(gains / 10)
 
         self.logger.info("* BS-BS")
-        chan['B2B'] = self.genmat((n_bx, n_bx, B, B), gains=gains,
+        chan['B2B'] = self.genmat((n_bx, n_bx, B, B), gains=np.array([1]),
                                   iterations=iterations)
 
         # UE-UE channels
         self.logger.info("* UE-UE")
-        gains = self.termsep * np.ones((K, K))
-        gains = 10**(gains / 10)
-        for k in range(K):
-            gains[k, k] = 0
+        # gains = self.termsep * np.ones((K, K))
+        # gains = 10**(gains / 10)
+        # for k in range(K):
+        #    gains[k, k] = 0
 
-        chan['D2D'] = self.genmat((n_dx, n_dx, K, K), iterations=iterations)
+        chan['D2D'] = self.genmat((n_dx, n_dx, K, K), iterations=iterations,
+                                  gains=gains['D2D'])
 
         return chan

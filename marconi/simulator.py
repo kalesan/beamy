@@ -55,6 +55,7 @@ class Simulator(object):
         """Return performance statistics for the given beamformers.
 
         Args:
+            chan (@todo): @todo
             prec (@todo): @todo
             recv (@todo): @todo
 

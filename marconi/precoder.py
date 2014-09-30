@@ -1027,7 +1027,7 @@ class PrecoderCVX(Precoder):
         prob.constraints.append(C <= self.pwr_lim['BS'])
 
         # Solve the problem
-        prob.solve(verbose=False, solver=cvx.SCS)
+        prob.solve(verbose=True, solver=cvx.SCS, max_iters=10000)
 
         prec = {}
         prec['D2B'] = np.zeros((n_dx, n_sk, B, K), dtype='complex')
