@@ -6,6 +6,9 @@ import scipy.constants
 
 import logging
 
+from itertools import product
+
+
 class ChannelModel(object):
     """Docstring for ChannelModel. """
 
@@ -79,7 +82,7 @@ class ClarkesModel(ChannelModel):
         Args:
             n_rx (int): Number of receive antennas.
             n_tx (int): Number of transmit antennas.
-            gains (matrix): Channel gain matrix [dB].
+            gains (matrix): Channel gain matrix.
             iterations (int) Channel realizations.
 
         Returns: Channel array.
@@ -91,14 +94,11 @@ class ClarkesModel(ChannelModel):
         if gains is None:
             gains = np.zeros((K, B))
 
-        gains = 10**(gains / 10)
-
         gains = gains.reshape((K*B, 1), order='F')
 
         path_powers = np.kron(np.kron(1, gains), np.ones((n_rx*n_tx, 1)))
 
-        # Timing vector
-        tv = np.r_[0:iterations] * self.ts
+        # Timing vector tv = np.r_[0:iterations] * self.ts
         tv = tv.reshape(iterations, 1)
 
         # Subpath complex phase evolution (N x nsamples)
@@ -135,6 +135,8 @@ class ClarkesModel(ChannelModel):
 
         gains = np.zeros((K,B))
 
+        wrap7(K,300)
+
         chan = {}
 
         # BS-UE channels
@@ -142,6 +144,7 @@ class ClarkesModel(ChannelModel):
         self.logger.info("* BS-UE")
 
         gains = self.intrasep * np.ones((K, B))
+        gains = 10**(gains / 10)
 
         chan['B2D'] = self.genmat((n_dx, n_bx, K, B), gains=gains,
                                   iterations=iterations)
@@ -151,6 +154,7 @@ class ClarkesModel(ChannelModel):
 
         # BS-BS channels
         gains = 0 * np.ones((B, B))
+        gains = 10**(gains / 10)
 
         self.logger.info("* BS-BS")
         chan['B2B'] = self.genmat((n_bx, n_bx, B, B), gains=gains,
@@ -159,6 +163,7 @@ class ClarkesModel(ChannelModel):
         # UE-UE channels
         self.logger.info("* UE-UE")
         gains = self.termsep * np.ones((K, K))
+        gains = 10**(gains / 10)
         for k in range(K):
             gains[k, k] = 0
 
