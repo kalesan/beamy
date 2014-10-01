@@ -18,10 +18,10 @@ class Simulator(object):
     """ This is the top-level simulator class, which is used to define the
     simulation environments and run the simulations. """
 
-    def __init__(self, prec, **kwargs):
-        self.sysparams = kwargs.get('sysparams', (2, 4, 10, 1))
+    def __init__(self, sysmodel, prec, **kwargs):
 
-        self.chanmod = kwargs.get('channel_model', chanmod.GaussianModel())
+        self.sysmodel = sysmodel
+        self.sysparams = sysmodel.sysparams
 
         self.iterations = {'channel': kwargs.get('realizations', 20),
                            'beamformer': kwargs.get('biterations', 50)}
@@ -34,8 +34,8 @@ class Simulator(object):
         self.resfile = kwargs.get('resfile', 'res.npz')
 
         self.pwr_lim = {}
-        self.pwr_lim['BS'] = 10**(kwargs.get('SNR_BS', 20)/10)
-        self.pwr_lim['UE'] = 10**(kwargs.get('SNR_UE', 20)/10)
+        self.pwr_lim['BS'] = 10**(sysmodel.gainmod.SNR_dB/10)
+        self.pwr_lim['UE'] = 10**(sysmodel.gainmod.SNR_ue_dB/10)
 
         self.noise_pwr = {}
         self.noise_pwr['BS'] = 1
@@ -230,7 +230,9 @@ class Simulator(object):
 
             iterations = self.iterations['beamformer']
 
-            chan = self.chanmod.generate(self.sysparams, iterations=iterations)
+            chan = self.sysmodel.chanmod.generate(self.sysparams,
+                                                  iterations=iterations,
+                                                  gains=self.sysmodel.gainmod.gains)
 
             beamformers = self.iterate_beamformers(chan)
 

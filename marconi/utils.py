@@ -284,24 +284,16 @@ def rate(chan, prec, noise_pwr, cov=None, errm=None):
     for (_ue, _bs) in itertools.product(range(K), range(B)):
         _tmp = -np.log2(np.linalg.det(errm['B2D'][:, :, _ue, _bs]))
         rates['B2D'][_ue, _bs] = np.real(_tmp)
-        if np.real(_tmp) < 0:
-            import ipdb; ipdb.set_trace()
 
         _tmp = -np.log2(np.linalg.det(errm['D2B'][:, :, _bs, _ue]))
         rates['D2B'][_bs, _ue] = np.real(_tmp)
-        if np.real(_tmp) < 0:
-            import ipdb; ipdb.set_trace()
 
     for _ue in range(K):
         _tmp = -np.log2(np.linalg.det(errm['D2D'][0][:, :, _ue]))
         rates['D2D'][0][_ue] = np.real(_tmp)
-        if np.real(_tmp) < 0:
-            import ipdb; ipdb.set_trace()
 
         _tmp = -np.log2(np.linalg.det(errm['D2D'][1][:, :, _ue]))
         rates['D2D'][1][_ue] = np.real(_tmp)
-        if np.real(_tmp) < 0:
-            import ipdb; ipdb.set_trace()
 
     return rates
 

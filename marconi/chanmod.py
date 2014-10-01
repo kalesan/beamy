@@ -89,6 +89,7 @@ class ClarkesModel(ChannelModel):
 
         (n_rx, n_tx, K, B) = sysparams
 
+        # TODO: Fix default gains
         if gains is None:
             gains = np.zeros((K, B))
 
@@ -131,11 +132,9 @@ class ClarkesModel(ChannelModel):
         # TOOD: this should part of the initialization
         (n_dx, n_bx, K, B) = sysparams
 
+        gains = kwargs.get('gains', None)
+
         iterations = kwargs.get('iterations', 1)
-
-        gains = np.zeros((K, B))
-
-        gains = gainmod.unif_single_cell(K, 100)
 
         chan = {}
 
@@ -147,7 +146,7 @@ class ClarkesModel(ChannelModel):
         # gains = 10**(gains / 10)
 
         chan['B2D'] = self.genmat((n_dx, n_bx, K, B),
-                                  gains=self.gainmod.gains['B2D'],
+                                  gains=gains['B2D'],
                                   iterations=iterations)
 
         self.logger.info("* UE-BS")
@@ -169,6 +168,6 @@ class ClarkesModel(ChannelModel):
         #    gains[k, k] = 0
 
         chan['D2D'] = self.genmat((n_dx, n_dx, K, K), iterations=iterations,
-                                  gains=self.gainmod.gains['D2D'])
+                                  gains=gains['D2D'])
 
         return chan

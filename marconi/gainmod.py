@@ -63,11 +63,9 @@ class Uniform1(object):
 
         self.gains['D2B'] = self.gains['B2D']
 
-        SNR_dB = SNR_edge + path_loss_exp*10*log10(closeness*cellsep)
-
         # Cell Edge SNR
 
-        self.SNR_dB = SNR_dB + path_loss_exp_bs*10*np.log10(radius)
+        self.SNR_dB = SNR_edge + path_loss_exp_bs*10*np.log10(radius)
 
         SNR_lin = 10**(self.SNR_dB/10) / K
 

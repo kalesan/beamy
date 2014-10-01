@@ -1027,7 +1027,7 @@ class PrecoderCVX(Precoder):
         prob.constraints.append(C <= self.pwr_lim['BS'])
 
         # Solve the problem
-        prob.solve(verbose=True, solver=cvx.SCS, max_iters=10000)
+        prob.solve(verbose=True, solver=cvx.CVXOPT, max_iters=100000)
 
         prec = {}
         prec['D2B'] = np.zeros((n_dx, n_sk, B, K), dtype='complex')
@@ -1050,6 +1050,11 @@ class PrecoderCVX(Precoder):
 
             prec['D2D'][1][:,:,k] = prec_re['D2D'][1][k].value + \
                 1j*prec_im['D2D'][1][k].value
+
+        print(np.linalg.norm(prec['B2D'][:]) / self.pwr_lim['BS'])
+        print(np.linalg.norm(prec['D2B'][:]) / self.pwr_lim['UE'])
+        print(np.linalg.norm(prec['D2D'][0][:]) / self.pwr_lim['UE'])
+        print(np.linalg.norm(prec['D2D'][1][:]) / self.pwr_lim['UE'])
 
         return prec
 
