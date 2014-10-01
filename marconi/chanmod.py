@@ -42,7 +42,7 @@ class GaussianModel(object):
 class ClarkesModel(ChannelModel):
     """Docstring for ClarkesModel. """
 
-    def __init__(self, **kwargs):
+    def __init__(self, gainmod, **kwargs):
         """ Constructor for Clarke's channel model. All of the parameters are
         optional up to the defaults.
 
@@ -59,7 +59,7 @@ class ClarkesModel(ChannelModel):
         carrier_freq_Hz = kwargs.get('carrier_freq_Hz', 2e9)
         npath = kwargs.get('npath', 300)
 
-        self.gainmod = kwargs.get('gainmod', gainmod.Uniform1()))
+        self.gainmod = gainmod
 
         self.ts = 1 / freq_sym_Hz  # Sample rate
         self.vel = speed_kmh / 3.6  # Velocity [m/s]
@@ -127,6 +127,8 @@ class ClarkesModel(ChannelModel):
         Returns: Array of channel matrices.
 
         """
+
+        # TOOD: this should part of the initialization
         (n_dx, n_bx, K, B) = sysparams
 
         iterations = kwargs.get('iterations', 1)
@@ -144,7 +146,8 @@ class ClarkesModel(ChannelModel):
         # gains = self.intrasep * np.ones((K, B))
         # gains = 10**(gains / 10)
 
-        chan['B2D'] = self.genmat((n_dx, n_bx, K, B), gains=gains['B2D'],
+        chan['B2D'] = self.genmat((n_dx, n_bx, K, B),
+                                  gains=self.gainmod.gains['B2D'],
                                   iterations=iterations)
 
         self.logger.info("* UE-BS")
@@ -166,6 +169,6 @@ class ClarkesModel(ChannelModel):
         #    gains[k, k] = 0
 
         chan['D2D'] = self.genmat((n_dx, n_dx, K, K), iterations=iterations,
-                                  gains=gains['D2D'])
+                                  gains=self.gainmod.gains['D2D'])
 
         return chan

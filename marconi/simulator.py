@@ -21,7 +21,7 @@ class Simulator(object):
     def __init__(self, prec, **kwargs):
         self.sysparams = kwargs.get('sysparams', (2, 4, 10, 1))
 
-        self.chanmod = kwargs.get('channel_model', chanmod.ClarkesModel())
+        self.chanmod = kwargs.get('channel_model', chanmod.GaussianModel())
 
         self.iterations = {'channel': kwargs.get('realizations', 20),
                            'beamformer': kwargs.get('biterations', 50)}
@@ -34,8 +34,8 @@ class Simulator(object):
         self.resfile = kwargs.get('resfile', 'res.npz')
 
         self.pwr_lim = {}
-        self.pwr_lim['BS'] = 10**(kwargs.get('SNR', 20)/10)
-        self.pwr_lim['UE'] = 10**(kwargs.get('SNR', 20)/10)
+        self.pwr_lim['BS'] = 10**(kwargs.get('SNR_BS', 20)/10)
+        self.pwr_lim['UE'] = 10**(kwargs.get('SNR_UE', 20)/10)
 
         self.noise_pwr = {}
         self.noise_pwr['BS'] = 1
