@@ -149,6 +149,11 @@ class PrecoderWMMSE(Precoder):
 
         [chan, recv, prec_prev, noise_pwr] = [_a for _a in args]
 
+        use_d2d = np.linalg.norm(recv['D2D'][:]) > 1e-10
+
+        use_cell = (np.linalg.norm(recv['B2D'][:]) +
+                    np.linalg.norm(recv['D2B'][:])) > 1e-10
+
         [n_dx, n_bx, K, B] = chan['B2D'].shape
         n_sk = min(n_dx, n_bx)
 
@@ -181,6 +186,9 @@ class PrecoderWMMSE(Precoder):
             prec = utils.weighted_bisection(chan, recv, weight, pwr_lim,
                                             threshold=self.precision)
 
+            if not use_d2d or not use_cell:
+                break
+
             rates = utils.rate(chan, prec, noise_pwr)
 
             rates['D2B'] = rates['D2B'].transpose(1, 0)
@@ -192,16 +200,17 @@ class PrecoderWMMSE(Precoder):
             if np.mod(itr, 100) == 0:
                 self.logger.debug("[%d] err: %f, lvl: %f (%f), r1: %f, " +
                                   "r2: %f r3: %f, r4: %f", itr,
-                                   np.linalg.norm(err),
-                                   np.linalg.norm(self.lvl[:]), self.stepsize,
-                                   rates['D2B'][:].sum(), rates['B2D'][:].sum(),
-                                   rates['D2D'][0][:].sum(),
-                                   rates['D2D'][1][:].sum())
+                                  np.linalg.norm(err),
+                                  np.linalg.norm(self.lvl[:]), self.stepsize,
+                                  rates['D2B'][:].sum(), rates['B2D'][:].sum(),
+                                  rates['D2D'][0][:].sum(),
+                                  rates['D2D'][1][:].sum())
 
             itr += 1
             err_prev = err
 
-            if np.mod(itr, 100) == 0:
+            if np.mod(itr, 101) == 0:
+
                 self.stepsize *= 0.85
 
             if itr > 1000:
@@ -694,6 +703,12 @@ class PrecoderCVX(Precoder):
         [n_dx, n_bx, K, B] = chan['B2D'].shape
         n_sk = min(n_dx, n_bx)
 
+        use_d2d = np.linalg.norm(recv['D2D'][:]) > 1e-10
+
+        use_cell = (np.linalg.norm(recv['B2D'][:]) +
+                    np.linalg.norm(recv['D2B'][:])) > 1e-10
+
+
         recv['D2B'] = [cvxopt.matrix(recv['D2B'][:,:,0,k]) for k in range(K)]
         recv['B2D'] = [cvxopt.matrix(recv['B2D'][:,:,k,0]) for k in range(K)]
         recv['D2D'][0] = [cvxopt.matrix(recv['D2D'][0][:,:,k]) for k in range(K)]
@@ -706,12 +721,14 @@ class PrecoderCVX(Precoder):
         wsqrt['D2D'][0] = [cvxopt.matrix(np.linalg.cholesky(weights['D2D'][0][:,:,k])) for k in range(K)]
         wsqrt['D2D'][1] = [cvxopt.matrix(np.linalg.cholesky(weights['D2D'][1][:,:,k])) for k in range(K)]
 
-        weights['D2B'] = [cvxopt.matrix(weights['D2B'][:,:,0,k]) for k in range(K)]
-        weights['B2D'] = [cvxopt.matrix(weights['B2D'][:,:,k,0]) for k in range(K)]
-        weights['D2D'][0] = [cvxopt.matrix(weights['D2D'][0][:,:,k]) for k in range(K)]
-        weights['D2D'][1] = [cvxopt.matrix(weights['D2D'][1][:,:,k]) for k in range(K)]
-
-        chan0 = chan.copy()
+        weights['D2B'] = [cvxopt.matrix(weights['D2B'][:,:,0,k])
+                          for k in range(K)]
+        weights['B2D'] = [cvxopt.matrix(weights['B2D'][:,:,k,0])
+                          for k in range(K)]
+        weights['D2D'][0] = [cvxopt.matrix(weights['D2D'][0][:,:,k])
+                             for k in range(K)]
+        weights['D2D'][1] = [cvxopt.matrix(weights['D2D'][1][:,:,k])
+                             for k in range(K)]
 
         chan['D2B'] = [cvxopt.matrix(chan['D2B'][:,:,0,k])
                        for k in range(K)]
@@ -766,17 +783,25 @@ class PrecoderCVX(Precoder):
 
         objective = cvx.trace(0)
         for k in range(K):
-            objective += R['B2D'][k] + R['D2D'][0][k] + R['D2D'][1][k]
+            if use_cell:
+                objective += R['B2D'][k]
+
+            if use_d2d:
+                objective += R['D2D'][0][k] + R['D2D'][1][k]
 
         prob = cvx.Problem(cvx.Minimize(objective))
 
-        for k in range(K):
-            prob.constraints.append(R['B2D'][k] == R['D2B'][k])
+        if use_cell:
+            for k in range(K):
+                prob.constraints.append(R['B2D'][k] == R['D2B'][k])
 
         # Slot 1: D2B & D2D(0)
 
         # D2B
         for k in range(K):
+            if not use_cell:
+                continue
+
             C = cvx.trace(weights['D2B'][k].real())
 
             W_chan = weights['D2B'][k]*recv['D2B'][k].H*chan['D2B'][k]
@@ -785,58 +810,11 @@ class PrecoderCVX(Precoder):
             C -= cvx.trace(prec_re['D2B'][k].T*W_chan.H.real())
             C += cvx.trace(-prec_im['D2B'][k].T*W_chan.H.imag())
 
-            C += cvx.trace((recv['D2B'][k]*weights['D2B'][k]*recv['D2B'][k].H).real() * self.noise_pwr['BS'])
+            C += cvx.trace((recv['D2B'][k]*weights['D2B'][k]*
+                            recv['D2B'][k].H).real() * self.noise_pwr['BS'])
 
             for j in range(K):
                 H_tmp = chan['D2B'][j].H*recv['D2B'][k]*wsqrt['D2B'][k]
-
-                C += cvx.trace(H_tmp.T.real() * quad_re['D2B'][j] * H_tmp.real())
-                C += cvx.trace(H_tmp.T.imag() * quad_im['D2B'][j] * H_tmp.real())
-                C -= cvx.trace(H_tmp.T.real() * quad_im['D2B'][j] * H_tmp.imag())
-                C += cvx.trace(H_tmp.T.imag() * quad_re['D2B'][j] * H_tmp.imag())
-
-                C += cvx.trace(H_tmp.T.real() * quad_re['D2D'][0][j] * H_tmp.real())
-                C += cvx.trace(H_tmp.T.imag() * quad_im['D2D'][0][j] * H_tmp.real())
-                C -= cvx.trace(H_tmp.T.real() * quad_im['D2D'][0][j] * H_tmp.imag())
-                C += cvx.trace(H_tmp.T.imag() * quad_re['D2D'][0][j] * H_tmp.imag())
-
-            prob.constraints.append(C <= R['D2B'][k])
-
-            C = cvx.vstack(cvx.hstack(quad_re['D2B'][k], -quad_im['D2B'][k]),
-                           cvx.hstack(quad_im['D2B'][k], quad_re['D2B'][k]))
-            prob.constraints.append(C == cvx.Semidef(2*n_dx))
-
-            C = cvx.vstack(
-                    cvx.hstack(quad_re['D2B'][k], prec_re['D2B'][k],
-                               -quad_im['D2B'][k], -prec_im['D2B'][k]),
-                    cvx.hstack(prec_re['D2B'][k].T, eye_sk,
-                               prec_im['D2B'][k].T, z_sk),
-                    cvx.hstack(quad_im['D2B'][k], prec_im['D2B'][k],
-                               quad_re['D2B'][k], prec_re['D2B'][k]),
-                    cvx.hstack(-prec_im['D2B'][k].T, z_sk,
-                               prec_re['D2B'][k].T, eye_sk))
-
-            prob.constraints.append(C == cvx.Semidef(2*(n_sk+n_dx)))
-
-            # Skew-symmetry
-            prob.constraints.append(quad_im['D2B'][k] + quad_im['D2B'][k].T  == 0)
-
-
-        # D2D - 1
-        for k in range(K):
-            C = cvx.trace(weights['D2D'][0][k].real())
-
-            W_chan = weights['D2D'][0][k]*recv['D2D'][0][k].H*chan['D2D'][k][k]
-            C -= cvx.trace(W_chan.real()*prec_re['D2D'][0][k])
-            C += cvx.trace(W_chan.imag()*prec_im['D2D'][0][k])
-            C -= cvx.trace(prec_re['D2D'][0][k].T*W_chan.H.real())
-            C += cvx.trace(-prec_im['D2D'][0][k].T*W_chan.H.imag())
-
-            C += cvx.trace((recv['D2D'][0][k]*weights['D2D'][0][k]*
-                            recv['D2D'][0][k].H).real() * self.noise_pwr['UE'])
-
-            for j in range(K):
-                H_tmp = chan['D2D'][k][j].H*recv['D2D'][0][k]*wsqrt['D2D'][0][k]
 
                 C += cvx.trace(H_tmp.T.real() * quad_re['D2B'][j] *
                                H_tmp.real())
@@ -846,6 +824,66 @@ class PrecoderCVX(Precoder):
                                H_tmp.imag())
                 C += cvx.trace(H_tmp.T.imag() * quad_re['D2B'][j] *
                                H_tmp.imag())
+
+                if use_d2d:
+                    C += cvx.trace(H_tmp.T.real() * quad_re['D2D'][0][j] *
+                                H_tmp.real())
+                    C += cvx.trace(H_tmp.T.imag() * quad_im['D2D'][0][j] *
+                                H_tmp.real())
+                    C -= cvx.trace(H_tmp.T.real() * quad_im['D2D'][0][j] *
+                                H_tmp.imag())
+                    C += cvx.trace(H_tmp.T.imag() * quad_re['D2D'][0][j] *
+                                H_tmp.imag())
+
+            prob.constraints.append(C <= R['D2B'][k])
+
+            C = cvx.vstack(cvx.hstack(quad_re['D2B'][k], -quad_im['D2B'][k]),
+                           cvx.hstack(quad_im['D2B'][k], quad_re['D2B'][k]))
+            prob.constraints.append(C == cvx.Semidef(2*n_dx))
+
+            C = cvx.vstack(cvx.hstack(quad_re['D2B'][k], prec_re['D2B'][k],
+                                      -quad_im['D2B'][k], -prec_im['D2B'][k]),
+                           cvx.hstack(prec_re['D2B'][k].T, eye_sk,
+                                      prec_im['D2B'][k].T, z_sk),
+                           cvx.hstack(quad_im['D2B'][k], prec_im['D2B'][k],
+                                      quad_re['D2B'][k], prec_re['D2B'][k]),
+                           cvx.hstack(-prec_im['D2B'][k].T, z_sk,
+                                      prec_re['D2B'][k].T, eye_sk))
+
+            prob.constraints.append(C == cvx.Semidef(2*(n_sk+n_dx)))
+
+            # Skew-symmetry
+            prob.constraints.append(quad_im['D2B'][k] + quad_im['D2B'][k].T
+                                    == 0)
+
+        # D2D - 1
+        for k in range(K):
+            if not use_d2d:
+                continue
+
+            C = cvx.trace(weights['D2D'][0][k].real())
+
+            W_chan = weights['D2D'][0][k]*recv['D2D'][0][k].H*chan['D2D'][k][k]
+            C -= cvx.trace(W_chan.real()*prec_re['D2D'][0][k])
+            C += cvx.trace(W_chan.imag()*prec_im['D2D'][0][k])
+            C -= cvx.trace(prec_re['D2D'][0][k].T*W_chan.H.real())
+            C += cvx.trace(-prec_im['D2D'][0][k].T*W_chan.H.imag())
+
+            C += cvx.trace((recv['D2D'][0][k] * weights['D2D'][0][k] *
+                            recv['D2D'][0][k].H).real() * self.noise_pwr['UE'])
+
+            for j in range(K):
+                H_tmp = chan['D2D'][k][j].H*recv['D2D'][0][k]*wsqrt['D2D'][0][k]
+
+                if use_cell:
+                    C += cvx.trace(H_tmp.T.real() * quad_re['D2B'][j] *
+                                H_tmp.real())
+                    C += cvx.trace(H_tmp.T.imag() * quad_im['D2B'][j] *
+                                H_tmp.real())
+                    C -= cvx.trace(H_tmp.T.real() * quad_im['D2B'][j] *
+                                H_tmp.imag())
+                    C += cvx.trace(H_tmp.T.imag() * quad_re['D2B'][j] *
+                                H_tmp.imag())
 
                 C += cvx.trace(H_tmp.T.real() * quad_re['D2D'][0][j] *
                                H_tmp.real())
@@ -882,6 +920,9 @@ class PrecoderCVX(Precoder):
 
         # B2D
         for k in range(K):
+            if not use_cell:
+                continue
+
             C = cvx.trace(weights['B2D'][k].real())
 
             W_chan = weights['B2D'][k]*recv['B2D'][k].H*chan['B2D'][k]
@@ -907,6 +948,9 @@ class PrecoderCVX(Precoder):
                                H_tmp.imag())
 
             for j in range(K):
+                if not use_d2d:
+                    continue
+
                 H_tmp = chan['D2D'][k][j].H*recv['B2D'][k]*wsqrt['B2D'][k]
 
                 C += cvx.trace(H_tmp.T.real() * quad_re['D2D'][1][j] *
@@ -943,15 +987,23 @@ class PrecoderCVX(Precoder):
 
         # Power constraint
         for k in range(K):
-            prob.constraints.append(
-                        cvx.sum_squares(prec_re['D2D'][0][k]) +
-                        cvx.sum_squares(prec_im['D2D'][0][k]) +
-                        cvx.sum_squares(prec_re['D2B'][k]) +
-                        cvx.sum_squares(prec_im['D2B'][k])
-                        <= self.pwr_lim['UE'])
+            C = 0
+
+            if use_d2d:
+                C += cvx.sum_squares(prec_re['D2D'][0][k]) + \
+                     cvx.sum_squares(prec_im['D2D'][0][k])
+
+            if use_cell:
+                C += cvx.sum_squares(prec_re['D2B'][k]) + \
+                     cvx.sum_squares(prec_im['D2B'][k])
+
+            prob.constraints.append(C <= self.pwr_lim['UE'])
 
         # D2D - 2
         for k in range(K):
+            if not use_d2d:
+                continue
+
             C = cvx.trace(weights['D2D'][1][k].real())
 
             W_chan = weights['D2D'][1][k]*recv['D2D'][1][k].H*chan['D2D'][k][k]
@@ -964,6 +1016,9 @@ class PrecoderCVX(Precoder):
                             recv['D2D'][1][k].H).real() * self.noise_pwr['UE'])
 
             for j in range(K):
+                if not use_cell:
+                    continue
+
                 H_tmp = chan['B2D'][k].H*recv['D2D'][1][k]*wsqrt['D2D'][1][k]
 
                 C += cvx.trace(H_tmp.T.real() * quad_re['B2D'][j] *
@@ -1014,20 +1069,24 @@ class PrecoderCVX(Precoder):
 
         # Power constraints
         for k in range(K):
+            if not use_d2d:
+                continue
+
             prob.constraints.append(
                         cvx.sum_squares(prec_re['D2D'][1][k]) +
                         cvx.sum_squares(prec_im['D2D'][1][k])
                         <= self.pwr_lim['UE'])
 
-        C = cvx.trace(0)
-        for k in range(K):
-            C += cvx.sum_squares(prec_re['B2D'][k])
-            C += cvx.sum_squares(prec_im['B2D'][k])
+        if use_cell:
+            C = cvx.trace(0)
+            for k in range(K):
+                C += cvx.sum_squares(prec_re['B2D'][k])
+                C += cvx.sum_squares(prec_im['B2D'][k])
 
-        prob.constraints.append(C <= self.pwr_lim['BS'])
+            prob.constraints.append(C <= self.pwr_lim['BS'])
 
         # Solve the problem
-        prob.solve(verbose=True, solver=cvx.CVXOPT, max_iters=100000)
+        prob.solve(verbose=True, solver=cvx.SCS, max_iters=100000)
 
         prec = {}
         prec['D2B'] = np.zeros((n_dx, n_sk, B, K), dtype='complex')
@@ -1039,17 +1098,19 @@ class PrecoderCVX(Precoder):
         prec['D2D'].append(np.zeros(params, dtype='complex'))
 
         for k in range(K):
-            prec['D2B'][:,:,0,k] = prec_re['D2B'][k].value + \
-                1j*prec_im['D2B'][k].value
+            if use_cell:
+                prec['D2B'][:,:,0,k] = prec_re['D2B'][k].value + \
+                    1j*prec_im['D2B'][k].value
 
-            prec['B2D'][:,:,k,0] = prec_re['B2D'][k].value + \
-                1j*prec_im['B2D'][k].value
+                prec['B2D'][:,:,k,0] = prec_re['B2D'][k].value + \
+                    1j*prec_im['B2D'][k].value
 
-            prec['D2D'][0][:,:,k] = prec_re['D2D'][0][k].value + \
-                1j*prec_im['D2D'][0][k].value
+            if use_d2d:
+                prec['D2D'][0][:,:,k] = prec_re['D2D'][0][k].value + \
+                    1j*prec_im['D2D'][0][k].value
 
-            prec['D2D'][1][:,:,k] = prec_re['D2D'][1][k].value + \
-                1j*prec_im['D2D'][1][k].value
+                prec['D2D'][1][:,:,k] = prec_re['D2D'][1][k].value + \
+                    1j*prec_im['D2D'][1][k].value
 
         print(np.linalg.norm(prec['B2D'][:]) / self.pwr_lim['BS'])
         print(np.linalg.norm(prec['D2B'][:]) / self.pwr_lim['UE'])
@@ -1080,5 +1141,16 @@ class PrecoderCVX(Precoder):
         # The new precoders
         prec = self.solve_cvxpy(chan.copy(), recv, weights)
 
-        return prec
+        rates = utils.rate(chan, prec, noise_pwr)
 
+        rates['D2B'] = rates['D2B'].transpose(1, 0)
+
+        err = rates['D2B'][:].sum() - rates['B2D'][:].sum()
+
+        self.logger.debug("err: %f, r1: %f, " "r2: %f r3: %f, r4: %f",
+                          np.linalg.norm(err),
+                          rates['D2B'][:].sum(), rates['B2D'][:].sum(),
+                          rates['D2D'][0][:].sum(),
+                          rates['D2D'][1][:].sum())
+
+        return prec
