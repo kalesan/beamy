@@ -151,14 +151,14 @@ def mse(chan, recv, prec, noise_pwr, cov=None):
     if cov is None:
         cov = sigcov(chan, prec, noise_pwr)
 
-    ## Slot 1 ##
+    #  Slot 1  #
 
     # Device to base station
     for (_ue, _bs) in itertools.product(range(K), range(B)):
         # Intended signal
         _tmp = np.dot(recv['D2B'][:, :, _bs, _ue].conj().T,
-                        np.dot(chan['D2B'][:, :, _bs, _ue],
-                               prec['D2B'][:, :, _bs, _ue]))
+                      np.dot(chan['D2B'][:, :, _bs, _ue],
+                             prec['D2B'][:, :, _bs, _ue]))
 
         errm['D2B'][:, :, _bs, _ue] = np.eye(n_sk) - _tmp - _tmp.conj().T
         errm['D2B'][:, :, _bs, _ue] += noise_pwr['BS'] * \
@@ -167,14 +167,14 @@ def mse(chan, recv, prec, noise_pwr, cov=None):
 
         for _int_ue in range(K):
             _tmp = np.dot(recv['D2B'][:, :, _bs, _ue].conj().T,
-                            np.dot(chan['D2B'][:, :, _bs, _int_ue],
-                                   prec_cat['D2B'][:, :, _int_ue]))
+                          np.dot(chan['D2B'][:, :, _bs, _int_ue],
+                                 prec_cat['D2B'][:, :, _int_ue]))
 
             errm['D2B'][:, :, _bs, _ue] += np.dot(_tmp, _tmp.conj().T)
 
             _tmp = np.dot(recv['D2B'][:, :, _bs, _ue].conj().T,
-                            np.dot(chan['D2B'][:, :, _bs, _int_ue],
-                                   prec_cat['D2D'][0][:, :, _int_ue]))
+                          np.dot(chan['D2B'][:, :, _bs, _int_ue],
+                                 prec_cat['D2D'][0][:, :, _int_ue]))
 
             errm['D2B'][:, :, _bs, _ue] += np.dot(_tmp, _tmp.conj().T)
 
@@ -182,8 +182,8 @@ def mse(chan, recv, prec, noise_pwr, cov=None):
     for _ue in range(K):
         # Intended signal
         _tmp = np.dot(recv['D2D'][0][:, :, _ue].conj().T,
-                        np.dot(chan['D2D'][:, :, _ue, _ue],
-                               prec['D2D'][0][:, :, _ue]))
+                      np.dot(chan['D2D'][:, :, _ue, _ue],
+                             prec['D2D'][0][:, :, _ue]))
 
         errm['D2D'][0][:, :, _ue] = np.eye(n_dx) - _tmp - _tmp.conj().T
         errm['D2D'][0][:, :, _ue] += noise_pwr['UE'] * \
@@ -359,6 +359,7 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-10):
     for _ue in range(K):
         prec['D2B'][:, :, _ue] = np.dot(np.linalg.pinv(wcov[:, :, _ue]),
                                         wchan['D2B'][:, :, _ue])
+
         prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(wcov[:, :, _ue]),
                                         wchan['D2D'][:, :, _ue])
 

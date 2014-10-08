@@ -3,8 +3,7 @@
 
 import numpy as np
 import scipy.constants
-
-import gainmod
+from scipy.io import loadmat
 
 import logging
 
@@ -38,11 +37,114 @@ class GaussianModel(object):
 
         return (1/np.sqrt(2)) * chan
 
+class PreModel(ChannelModel):
+    """Docstring for ClarkesModel. """
+
+    def __init__(self, chanfile):
+        super(PreModel, self).__init__()
+
+        self.chanfile = chanfile
+
+        self.realization = 0
+
+    def genmat(self, chan, gains=None, iterations=1):
+        """TODO: Docstring for genmat.
+
+        Args:
+            chan (matrix): Channel base matrix.
+            gains (matrix): Channel gain matrix.
+            iterations (int) Channel realizations.
+
+        Returns: Channel array.
+
+        """
+
+        (n_rx, n_tx, K, B) = chan.shape
+
+        ret = np.zeros((n_rx, n_tx, K, B, iterations), dtype='complex')
+
+        # TODO: Fix default gains
+        if gains is None:
+            gains = np.ones((K, B))
+
+        for k in range(K):
+            for b in range(B):
+                for it in range(iterations):
+                    ret[:, :, k, b, it] = np.sqrt(gains[k, b]) * \
+                                          chan[:, :, k, b]
+
+        return ret
+
+    def generate(self, sysparams, **kwargs):
+        """ Generate time-correlated Rayleigh fading channels.
+
+        Args:
+            sysparams (tuple): System parameters (RX, TX, K, B).
+
+        Kwargs:
+            iterations (int): Number of beamformer iterations.
+
+        Returns: Array of channel matrices.
+
+        """
+
+        # TOOD: this should part of the initialization
+        (n_dx, n_bx, K, B) = sysparams
+
+        gains = kwargs.get('gains', None)
+
+        iterations = kwargs.get('iterations', 1)
+
+        chan = {}
+
+        # BS-UE channels
+        self.logger.info("Generating channels")
+        self.logger.info("* BS-UE")
+
+        # gains = self.intrasep * np.ones((K, B))
+        # gains = 10**(gains / 10)
+
+        data = loadmat(self.chanfile)
+
+        maxrel = data['H_b2d'].shape[-1]
+        rel = self.realization
+
+        chan['B2D'] = self.genmat(data['H_b2d'][:, :, :, :, 0, rel],
+                                  gains=gains['B2D'],
+                                  iterations=iterations)
+
+        self.logger.info("* UE-BS")
+
+        chan['D2B'] = self.genmat(data['H_d2b'][:, :, :, :, 0, rel],
+                                  gains=gains['D2B'].transpose(),
+                                  iterations=iterations)
+
+        # BS-BS channels
+        # gains = 0 * np.ones((B, B))
+        # gains = 10**(gains / 10)
+
+        self.logger.info("* BS-BS")
+        chan['B2B'] = None
+
+        # UE-UE channels
+        self.logger.info("* UE-UE")
+        # gains = self.termsep * np.ones((K, K))
+        # gains = 10**(gains / 10)
+        # for k in range(K):
+        #    gains[k, k] = 0
+
+        chan['D2D'] = self.genmat(data['H_d2d'][:, :, :, :, 0, rel],
+                                  gains=gains['D2D'],
+                                  iterations=iterations)
+
+        self.realization = np.mod(rel + 1, maxrel)
+
+        return chan
 
 class ClarkesModel(ChannelModel):
     """Docstring for ClarkesModel. """
 
-    def __init__(self, gainmod, **kwargs):
+    def __init__(self, **kwargs):
         """ Constructor for Clarke's channel model. All of the parameters are
         optional up to the defaults.
 
@@ -58,8 +160,6 @@ class ClarkesModel(ChannelModel):
         freq_sym_Hz = kwargs.get('freq_sym_Hz', 20e3)
         carrier_freq_Hz = kwargs.get('carrier_freq_Hz', 2e9)
         npath = kwargs.get('npath', 300)
-
-        self.gainmod = gainmod
 
         self.ts = 1 / freq_sym_Hz  # Sample rate
         self.vel = speed_kmh / 3.6  # Velocity [m/s]
@@ -150,7 +250,9 @@ class ClarkesModel(ChannelModel):
                                   iterations=iterations)
 
         self.logger.info("* UE-BS")
-        chan['D2B'] = chan['B2D'].transpose(1, 0, 3, 2, 4)
+        chan['D2B'] = self.genmat((n_bx, n_dx, B, K),
+                                  gains=gains['D2D'],
+                                  iterations=iterations)
 
         # BS-BS channels
         # gains = 0 * np.ones((B, B))

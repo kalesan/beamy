@@ -19,6 +19,7 @@ class Simulator(object):
     simulation environments and run the simulations. """
 
     def __init__(self, sysmodel, prec, **kwargs):
+        logger = logging.getLogger(__name__)
 
         self.sysmodel = sysmodel
         self.sysparams = sysmodel.sysparams
@@ -36,6 +37,10 @@ class Simulator(object):
         self.pwr_lim = {}
         self.pwr_lim['BS'] = 10**(sysmodel.gainmod.SNR_dB/10)
         self.pwr_lim['UE'] = 10**(sysmodel.gainmod.SNR_ue_dB/10)
+
+        logger.info("BS TxPwr: %f, UE TxPwr: %f",
+                    10*np.log10(self.pwr_lim['BS']),
+                    10*np.log10(self.pwr_lim['UE']))
 
         self.noise_pwr = {}
         self.noise_pwr['BS'] = 1
@@ -196,10 +201,15 @@ class Simulator(object):
 
             irecv = utils.lmmse(ichan, iprec, self.noise_pwr)
 
+            rates = utils.rate(ichan, iprec, self.noise_pwr)
+
             stats = self.stats(ichan, iprec, irecv)
 
             logger.info("Rate: %.4f (I: %f) ", stats['rate'],
                         stats['rate'] - rate_prev)
+            logger.info("r0: %.4f r1: %.4f r2: %.4f r3: %.4f",
+                        rates['D2B'][:].sum(), rates['B2D'][:].sum(),
+                        rates['D2D'][0][:].sum(), rates['D2D'][1][:].sum())
 
             prec['B2D'][:, :, :, :, ind] = iprec['B2D']
             prec['D2B'][:, :, :, :, ind] = iprec['D2B']

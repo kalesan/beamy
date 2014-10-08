@@ -19,7 +19,7 @@ class Precoder(object):
     """ This is the base class for all precoder design. The generator function
     should be overridden to comply with the corresponding design."""
 
-    def __init__(self, sysparams, uplink=False, precision=1e-6):
+    def __init__(self, sysparams, uplink=False, precision=1e-5):
         (self.n_dx, self.n_bx, self.K, self.B) = sysparams
 
         self.n_sk = min(self.n_bx, self.n_dx)
@@ -141,7 +141,8 @@ class PrecoderWMMSE(Precoder):
     def reset(self):
         """Reinitialize precoder parameters / state."""
 
-        self.lvl = np.ones((self.K, self.B)) * 0.1
+        self.lvl1 = np.ones((self.K, self.B)) * 0.1
+        self.lvl2 = np.ones((self.K, self.B)) * 0.1
         self.stepsize = 0.05
 
     def generate(self, *args, **kwargs):
@@ -155,23 +156,19 @@ class PrecoderWMMSE(Precoder):
                     np.linalg.norm(recv['D2B'][:])) > 1e-10
 
         [n_dx, n_bx, K, B] = chan['B2D'].shape
-        n_sk = min(n_dx, n_bx)
 
         pwr_lim = kwargs.get('pwr_lim', {'BS': 1, 'UE': 1})
 
-        err = np.Inf
-        err_prev = np.Inf
+        err = [np.Inf]
 
-        itr = 1
+        itr = 1.
 
         errm = utils.mse(chan, recv, prec_prev, noise_pwr)
 
         weight0 = self.mse_weights(chan, recv, prec_prev, noise_pwr,
                                    errm=errm)
 
-        #self.stepsize *= 1.1
-
-        while np.abs(err) > self.precision:
+        while np.linalg.norm(err[:]) > 1e-3:  #self.precision:
             weight = {}
             weight['B2D'] = weight0['B2D'].copy()
             weight['D2B'] = weight0['D2B'].copy()
@@ -180,50 +177,54 @@ class PrecoderWMMSE(Precoder):
             weight['D2D'][1] = weight0['D2D'][1].copy()
 
             for (_ue, _bs) in itertools.product(range(K), range(B)):
-                weight['B2D'][:, :, _ue, _bs] *= self.lvl[_ue, _bs]
-                weight['D2B'][:, :, _bs, _ue] *= (1 - self.lvl[_ue, _bs])
+                weight['B2D'][:, :, _ue, _bs] *= self.lvl1[_ue, _bs]
+                weight['D2B'][:, :, _bs, _ue] *= self.lvl2[_ue, _bs]
 
             prec = utils.weighted_bisection(chan, recv, weight, pwr_lim,
-                                            threshold=self.precision)
+                                            threshold=1e-4) # self.precision)
 
-            if not use_d2d or not use_cell:
-                break
+            #    break
 
             rates = utils.rate(chan, prec, noise_pwr)
 
             rates['D2B'] = rates['D2B'].transpose(1, 0)
 
-            err = rates['D2B'][:].sum() - rates['B2D'][:].sum()
+            err = rates['D2B'] - rates['B2D']
 
-            self.lvl = self.lvl + self.stepsize*(err)
+            if not use_d2d and (np.all(rates['D2B'] > rates['B2D']) or
+               np.all(rates['D2B'] < rates['B2D'])):
+                break
 
-            if np.mod(itr, 100) == 0:
-                self.logger.debug("[%d] err: %f, lvl: %f (%f), r1: %f, " +
+            self.stepsize = 2 / np.sqrt(itr)
+
+            t = np.minimum(rates['D2B'], rates['B2D'])
+
+            self.lvl1 = self.lvl1 + self.stepsize*(rates['D2B'] - rates['B2D'])
+
+            self.lvl1[self.lvl1 < 0] = 0
+            self.lvl2 = self.lvl2 + self.stepsize*(rates['B2D'] - rates['D2B'])
+            self.lvl2[self.lvl2 < 0] = 0
+
+            if np.mod(itr, 50) == 0:
+                self.logger.debug("[%d] err: %f, lvl: %f - %f, (%f), r1: %f, " +
                                   "r2: %f r3: %f, r4: %f", itr,
-                                  np.linalg.norm(err),
-                                  np.linalg.norm(self.lvl[:]), self.stepsize,
+                                  np.linalg.norm(err[:]),
+                                  np.linalg.norm(self.lvl1.sum()),
+                                  np.linalg.norm(self.lvl2.sum()),
+                                  self.stepsize,
                                   rates['D2B'][:].sum(), rates['B2D'][:].sum(),
                                   rates['D2D'][0][:].sum(),
                                   rates['D2D'][1][:].sum())
 
             itr += 1
-            err_prev = err
 
-            if np.mod(itr, 101) == 0:
-
-                self.stepsize *= 0.85
-
-            if itr > 1000:
+            if rates['B2D'][:].sum() < 1e-2 and \
+               rates['D2B'][:].sum() < 1e-2:
                 break
 
-            if self.stepsize < self.precision:
-                break
-
-            #self.stepsize = max(self.stepsize, 0.5*np.abs(err))
-
-
-            #if np.linalg.norm(self.lvl[:]) > 1:
-            #    break
+        self.recv_prev = recv
+        self.prec_prev = prec
+        self.weight_prev = weight
 
         return prec
 
@@ -781,19 +782,21 @@ class PrecoderCVX(Precoder):
         R['B2D'] = [cvx.Variable(name="Rd%d" % k) for k in range(K)]
         R['D2B'] = [cvx.Variable(name="Ru%d" % k) for k in range(K)]
 
+        t = cvx.Variable(K, 1)
+
         objective = cvx.trace(0)
         for k in range(K):
             if use_cell:
-                objective += R['B2D'][k]
+                objective += cvx.sum_entries(t)
 
             if use_d2d:
                 objective += R['D2D'][0][k] + R['D2D'][1][k]
 
         prob = cvx.Problem(cvx.Minimize(objective))
 
-        if use_cell:
-            for k in range(K):
-                prob.constraints.append(R['B2D'][k] == R['D2B'][k])
+        for k in range(K):
+            prob.constraints.append(R['B2D'][k] <= t[k])
+            prob.constraints.append(R['D2B'][k] <= t[k])
 
         # Slot 1: D2B & D2D(0)
 

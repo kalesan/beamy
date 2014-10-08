@@ -4,11 +4,11 @@ import re
 import numpy as np
 import pylab as plt
 
-nameconv = {'WMMSE-BS': 'WMMSE-BS', 'WMMSE-D2D': 'D2D',
+nameconv = {'WMMSE-BS': 'BS', 'WMMSE-D2D': 'D2D',
             'WMMSE-Cell': 'Cellular + D2D'}
 
-plotstyle = {'WMMSE-BS': 'k-', 'WMMSE-D2D': 'b-',
-             'WMMSE-Cell': 'r-'}
+plotstyle = {'WMMSE-BS': 'kd-', 'WMMSE-D2D': 'bs-',
+             'WMMSE-Cell': 'ro-'}
 
 sims = {}
 fls = [f for f in os.listdir('.') if
