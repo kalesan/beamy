@@ -399,6 +399,10 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-10):
                 upper_bound *= 10
                 bounds = np.array([0, upper_bound])
 
+            # Check whether we approach zero
+            if (bounds[0] < 1e-10) and (bounds[1] < 1e-10):
+                break
+
     prec['D2B'] = prec['D2B'].reshape((n_dx, n_sk, B, K), order='F')
     # prec['D2D'] = prec['D2D'].reshape((n_dx, n_dx, K), order='F')
 
@@ -526,6 +530,10 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
                 upper_bound *= 10
                 bounds = np.array([0, upper_bound])
 
+            # Check whether we approach zero
+            if (bounds[0] < 1e-10) and (bounds[1] < 1e-10):
+                break
+
     # Perform the power bisection for each BS separately
     for _ue in range(K):
         prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(wcov['UE'][:, :, _ue]),
@@ -562,6 +570,10 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
             if np.abs(upper_bound - bounds[1]) < 1e-8:
                 upper_bound *= 10
                 bounds = np.array([0, upper_bound])
+
+            # Check whether we approach zero
+            if (bounds[0] < 1e-10) and (bounds[1] < 1e-10):
+                break
 
     prec['B2D'] = prec['B2D'].reshape((n_bx, n_sk, K, B), order='F')
     # prec['D2D'] = prec['D2D'].reshape((n_dx, n_dx, K), order='F')
