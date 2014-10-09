@@ -195,7 +195,7 @@ class PrecoderWMMSE(Precoder):
                np.all(rates['D2B'] < rates['B2D'])):
                 break
 
-            self.stepsize = 2 / np.sqrt(itr)
+            self.stepsize = 1.5 / np.sqrt(itr)
 
             t = np.minimum(rates['D2B'], rates['B2D'])
 
@@ -205,7 +205,7 @@ class PrecoderWMMSE(Precoder):
             self.lvl2 = self.lvl2 + self.stepsize*(rates['B2D'] - rates['D2B'])
             self.lvl2[self.lvl2 < 0] = 0
 
-            if np.mod(itr, 50) == 0:
+            if np.mod(itr, 100) == 0:
                 self.logger.debug("[%d] err: %f, lvl: %f - %f, (%f), r1: %f, " +
                                   "r2: %f r3: %f, r4: %f", itr,
                                   np.linalg.norm(err[:]),
@@ -220,6 +220,9 @@ class PrecoderWMMSE(Precoder):
 
             if rates['B2D'][:].sum() < 1e-2 and \
                rates['D2B'][:].sum() < 1e-2:
+                break
+
+            if itr > 5000:
                 break
 
         self.recv_prev = recv
