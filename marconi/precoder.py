@@ -144,6 +144,8 @@ class PrecoderWMMSE(Precoder):
         self.lvl1 = np.ones((self.K, self.B)) * 0.1
         self.lvl2 = np.ones((self.K, self.B)) * 0.1
         self.stepsize = 0.05
+        self.iteration = 1
+        self.itr = 1.
 
     def generate(self, *args, **kwargs):
         """ Generate the WMMSE precoders. """
@@ -161,14 +163,19 @@ class PrecoderWMMSE(Precoder):
 
         err = [np.Inf]
 
-        itr = 1.
 
         errm = utils.mse(chan, recv, prec_prev, noise_pwr)
 
         weight0 = self.mse_weights(chan, recv, prec_prev, noise_pwr,
                                    errm=errm)
 
-        while np.linalg.norm(err[:]) > 1e-3:  #self.precision:
+        self.itr = 1
+
+        err_prev = 0
+
+        while (np.linalg.norm(err[:]) > 1e-3) and \
+              (np.abs(err_prev - np.linalg.norm(err[:])) > self.precision):
+
             weight = {}
             weight['B2D'] = weight0['B2D'].copy()
             weight['D2B'] = weight0['D2B'].copy()
@@ -183,31 +190,41 @@ class PrecoderWMMSE(Precoder):
             prec = utils.weighted_bisection(chan, recv, weight, pwr_lim,
                                             threshold=1e-4) # self.precision)
 
-            #    break
-
             rates = utils.rate(chan, prec, noise_pwr)
 
             rates['D2B'] = rates['D2B'].transpose(1, 0)
 
+            err_prev = np.linalg.norm(err[:])
+
             err = rates['D2B'] - rates['B2D']
 
-            if not use_d2d and (np.all(rates['D2B'] > rates['B2D']) or
-               np.all(rates['D2B'] < rates['B2D'])):
-                break
+            if self.iteration < 10:
+                self.stepsize = 1.1**(-0.75*self.itr)
+            else:
+                self.stepsize = 1.1**(-self.itr)
 
-            self.stepsize = 1.5 / np.sqrt(itr)
+            #if not use_d2d:
+                #self.stepsize = 0.5 / np.sqrt(self.itr)
 
             t = np.minimum(rates['D2B'], rates['B2D'])
 
+            # import ipdb; ipdb.set_trace()
+
             self.lvl1 = self.lvl1 + self.stepsize*(rates['D2B'] - rates['B2D'])
+            if not use_d2d:
+                self.lvl1[self.lvl1 < 0] = 1e-2
+            else:
+                self.lvl1[self.lvl1 < 0] = 0
 
-            self.lvl1[self.lvl1 < 0] = 0
-            self.lvl2 = self.lvl2 + self.stepsize*(rates['B2D'] - rates['D2B'])
-            self.lvl2[self.lvl2 < 0] = 0
+            self.lvl2 = 1 - self.lvl1
+            if not use_d2d:
+                self.lvl2[self.lvl2 < 0] = 1e-2
+            else:
+                self.lvl2[self.lvl2 < 0] = 0
 
-            if np.mod(itr, 100) == 0:
+            if np.mod(self.itr, 100) == 0:
                 self.logger.debug("[%d] err: %f, lvl: %f - %f, (%f), r1: %f, " +
-                                  "r2: %f r3: %f, r4: %f", itr,
+                                  "r2: %f r3: %f, r4: %f", self.itr,
                                   np.linalg.norm(err[:]),
                                   np.linalg.norm(self.lvl1.sum()),
                                   np.linalg.norm(self.lvl2.sum()),
@@ -216,18 +233,21 @@ class PrecoderWMMSE(Precoder):
                                   rates['D2D'][0][:].sum(),
                                   rates['D2D'][1][:].sum())
 
-            itr += 1
+            self.itr += 1
+
+            if self.itr > 500:
+                break
+
 
             if rates['B2D'][:].sum() < 1e-2 and \
                rates['D2B'][:].sum() < 1e-2:
                 break
 
-            if itr > 5000:
-                break
-
         self.recv_prev = recv
         self.prec_prev = prec
         self.weight_prev = weight
+
+        self.iteration += 1
 
         return prec
 
