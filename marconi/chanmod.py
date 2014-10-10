@@ -37,6 +37,7 @@ class GaussianModel(object):
 
         return (1/np.sqrt(2)) * chan
 
+
 class PreModel(ChannelModel):
     """Docstring for ClarkesModel. """
 
@@ -71,7 +72,7 @@ class PreModel(ChannelModel):
             for b in range(B):
                 for it in range(iterations):
                     ret[:, :, k, b, it] = np.sqrt(gains[k, b]) * \
-                                          chan[:, :, k, b]
+                        chan[:, :, k, b]
 
         return ret
 
@@ -191,7 +192,7 @@ class ClarkesModel(ChannelModel):
 
         # TODO: Fix default gains
         if gains is None:
-            gains = np.zeros((K, B))
+            gains = np.ones((K, B))
 
         gains = gains.reshape((K*B, 1), order='F')
 
@@ -250,7 +251,7 @@ class ClarkesModel(ChannelModel):
                                   iterations=iterations)
 
         self.logger.info("* UE-BS")
-        chan['D2B'] = self.genmat((n_bx, n_dx, B, K),
+        chan['D2B'] = self.genmat((n_bx, n_dx, K, K),
                                   gains=gains['D2D'],
                                   iterations=iterations)
 
