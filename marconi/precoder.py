@@ -19,7 +19,7 @@ class Precoder(object):
     """ This is the base class for all precoder design. The generator function
     should be overridden to comply with the corresponding design."""
 
-    def __init__(self, sysparams, uplink=False, precision=1e-5):
+    def __init__(self, sysparams, uplink=False, precision=1e-8):
         (self.n_dx, self.n_bx, self.K, self.B) = sysparams
 
         self.n_sk = min(self.n_bx, self.n_dx)
@@ -188,7 +188,7 @@ class PrecoderWMMSE(Precoder):
                 weight['D2B'][:, :, _bs, _ue] *= self.lvl2[_ue, _bs]
 
             prec = utils.weighted_bisection(chan, recv, weight, pwr_lim,
-                                            threshold=1e-4) # self.precision)
+                                            self.precision)
 
             rates = utils.rate(chan, prec, noise_pwr)
 
@@ -207,8 +207,6 @@ class PrecoderWMMSE(Precoder):
                 #self.stepsize = 0.5 / np.sqrt(self.itr)
 
             t = np.minimum(rates['D2B'], rates['B2D'])
-
-            # import ipdb; ipdb.set_trace()
 
             self.lvl1 = self.lvl1 + self.stepsize*(rates['D2B'] - rates['B2D'])
             if not use_d2d:
@@ -298,8 +296,8 @@ class PrecoderSDP_MAC(Precoder):
         wcov = np.dot(np.dot(chan.conj().T, wrecv), chan)
 
         # Concatenated transmitters
-        prec = np.dot(np.linalg.pinv(wcov + lvl*np.eye(self.n_tx)),
-                      np.dot(np.dot(chan.conj().T, recv), np.squeeze(weights)))
+        prec = np.linalg.solve(wcov + lvl*np.eye(self.n_tx),
+                               np.dot(np.dot(chan.conj().T, recv), np.squeeze(weights)))
 
         return prec.reshape(self.n_tx, self.n_sk, self.K, order='F')
 

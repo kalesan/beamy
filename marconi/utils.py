@@ -373,9 +373,11 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-10):
         bounds = np.array([0, upper_bound])
 
         err = np.inf
+        lvl_prev = 0
+        lvl = 0
 
-        itr = 1
         while err > threshold:
+            lvl_prev = lvl
             lvl = (bounds.sum()) / 2
 
             _wcov = wcov[:, :, _ue] + np.eye(n_dx)*lvl
@@ -401,13 +403,8 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-10):
                 bounds = np.array([0, upper_bound])
 
             # Check whether we approach zero
-            if (bounds[0] < threshold*10) and (bounds[1] < threshold*10):
+            if np.abs(lvl - lvl_prev) == 0:
                 break
-
-            if itr > 10000:
-                break
-
-            itr += 1
 
     prec['D2B'] = prec['D2B'].reshape((n_dx, n_sk, B, K), order='F')
     # prec['D2D'] = prec['D2D'].reshape((n_dx, n_dx, K), order='F')
@@ -513,9 +510,11 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
         bounds = np.array([0, upper_bound])
 
         err = np.inf
+        lvl_prev = 0
+        lvl = 0
 
-        itr = 1
         while err > threshold:
+            lvl_prev = lvl
             lvl = (bounds.sum()) / 2
 
             _wcov = wcov['BS'][:, :, _bs] + np.eye(n_bx)*lvl
@@ -538,13 +537,8 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
                 bounds = np.array([0, upper_bound])
 
             # Check whether we approach zero
-            if (bounds[0] < threshold*10) and (bounds[1] < threshold*10):
+            if np.abs(lvl - lvl_prev) == 0:
                 break
-
-            if itr > 10000:
-                break
-
-            itr += 1
 
     # Perform the power bisection for each BS separately
     for _ue in range(K):
@@ -561,8 +555,11 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
 
         err = np.inf
 
-        itr = 1
+        lvl_prev = 0
+        lvl = 0
+
         while err > threshold:
+            lvl_prev = lvl
             lvl = (bounds.sum()) / 2
 
             _wcov = wcov['UE'][:, :, _ue] + np.eye(n_dx)*lvl
@@ -585,13 +582,8 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
                 bounds = np.array([0, upper_bound])
 
             # Check whether we approach zero
-            if (bounds[0] < threshold*10) and (bounds[1] < threshold*10):
+            if np.abs(lvl - lvl_prev) == 0:
                 break
-
-            if itr > 10000:
-                break
-
-            itr += 1
 
     prec['B2D'] = prec['B2D'].reshape((n_bx, n_sk, K, B), order='F')
     # prec['D2D'] = prec['D2D'].reshape((n_dx, n_dx, K), order='F')

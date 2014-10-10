@@ -45,12 +45,12 @@ class Uniform1(object):
 
         # Mid-points
         # locs = self.radius * (np.cos(angles) + 1j*np.sin(angles))
-        angl = np.arcsin((self.d2d_dist / 2) / self.radius)
+        angl = np.arcsin((self.d2d_dist / 2) / float(self.radius))
 
-        coord_recv = self.radius * (np.cos(angles+angl) +
-                                    1j*np.sin(angles+angl))
-        coord_tran = self.radius * (np.cos(angles-angl) +
-                                    1j*np.sin(angles-angl))
+        coord_recv = self.radius * (np.cos(np.mod(angles+angl, 2*np.pi)) +
+                                    1j*np.sin(np.mod(angles+angl, 2*np.pi)))
+        coord_tran = self.radius * (np.cos(np.mod(angles-angl, 2*np.pi)) +
+                                    1j*np.sin(np.mod(angles-angl, 2*np.pi)))
 
         # dist_BS = [np.abs(locs[k]) for k in range(K)]
 
@@ -59,6 +59,8 @@ class Uniform1(object):
 
         for (i, j) in product(range(K), range(K)):
             dist_UE[i, j] = np.abs(coord_recv[i] - coord_tran[j])
+
+        dist_UE[dist_UE == 0] = 1e-3
 
         # Gains
         self.gains = {}
