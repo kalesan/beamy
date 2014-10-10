@@ -26,7 +26,7 @@ for sim in fls:
     radius = m.group(7)
     d2d_dist = m.group(8)
 
-    case = str((n_rx, n_tx, n_ue))
+    case = str((n_rx, n_tx, n_ue, snr, d2d_dist))
 
     if case not in cases:
         cases[case] = {}
@@ -76,8 +76,8 @@ for case in cases.keys():
 
     plt.xlabel('Cell radius.')
     plt.ylabel('Average sum rate [bits/sec/Hz].')
-    plt.title('$N_{\\mathrm B}=%s, N_{\\mathrm T}=%s, K=%s$' %
-              (n_tx, n_rx, n_ue))
+    plt.title('$N_{\\mathrm B}=%s, N_{\\mathrm T}=%s, K=%s$, SNR=$%s$dB and D2D distance = $%s$ m' % (n_tx, n_rx, n_ue, snr, d2d_dist))
 
     legend = plt.legend(loc='lower right', shadow=True, fontsize='x-large')
+
 plt.show()
