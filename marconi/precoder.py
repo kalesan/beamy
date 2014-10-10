@@ -208,8 +208,6 @@ class PrecoderWMMSE(Precoder):
 
             t = np.minimum(rates['D2B'], rates['B2D'])
 
-            # import ipdb; ipdb.set_trace()
-
             self.lvl1 = self.lvl1 + self.stepsize*(rates['D2B'] - rates['B2D'])
             if not use_d2d:
                 self.lvl1[self.lvl1 < 0] = 1e-2

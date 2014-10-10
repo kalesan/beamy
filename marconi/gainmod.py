@@ -43,14 +43,20 @@ class Uniform1(object):
 
         angles = np.r_[0:K] * 2*np.pi/K
 
+        # Angles to receivers
+        self.angles = {}
+
         # Mid-points
         # locs = self.radius * (np.cos(angles) + 1j*np.sin(angles))
         angl = np.arcsin((self.d2d_dist / 2) / self.radius)
 
-        coord_recv = self.radius * (np.cos(angles+angl) +
-                                    1j*np.sin(angles+angl))
-        coord_tran = self.radius * (np.cos(angles-angl) +
-                                    1j*np.sin(angles-angl))
+        self.angles['B2D'] = angles+angl
+
+        coord_recv = self.radius * (np.cos(np.mod(angles+angl, 2*np.pi)) +
+                                    1j*np.sin(np.mod(angles+angl, 2*np.pi)))
+
+        coord_tran = self.radius * (np.cos(np.mod(angles-angl, 2*np.pi)) +
+                                    1j*np.sin(np.mod(angles-angl, 2*np.pi)))
 
         # dist_BS = [np.abs(locs[k]) for k in range(K)]
 
@@ -58,7 +64,13 @@ class Uniform1(object):
         dist_UE = np.zeros((K, K))
 
         for (i, j) in product(range(K), range(K)):
+            angles = np.r_[0:K] * 2*np.pi/K
+
             dist_UE[i, j] = np.abs(coord_recv[i] - coord_tran[j])
+
+        self.angles['D2D'] = np.zeros((K, K))
+        for k in range(K):
+            self.angles['D2D'][k,:] = np.mod(np.r_[0:K]+k, K)
 
         # Gains
         self.gains = {}
