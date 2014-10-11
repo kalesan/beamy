@@ -357,10 +357,10 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-10):
 
     # Perform the power bisection for each BS separately
     for _ue in range(K):
-        prec['D2B'][:, :, _ue] = np.linalg.solve(wcov[:, :, _ue],
+        prec['D2B'][:, :, _ue] = np.dot(np.linalg.pinv(wcov[:, :, _ue]),
                                                  wchan['D2B'][:, :, _ue])
 
-        prec['D2D'][:, :, _ue] = np.linalg.solve(wcov[:, :, _ue],
+        prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(wcov[:, :, _ue]),
                                                  wchan['D2D'][:, :, _ue])
 
         pwr = np.linalg.norm(prec['D2B'][:, :, _ue][:])**2 + \
@@ -382,9 +382,9 @@ def weighted_bisection1(chan, recv, weights, pwr_lim, threshold=1e-10):
 
             _wcov = wcov[:, :, _ue] + np.eye(n_dx)*lvl
 
-            prec['D2B'][:, :, _ue] = np.linalg.solve(_wcov,
+            prec['D2B'][:, :, _ue] = np.dot(np.linalg.pinv(_wcov),
                                                      wchan['D2B'][:, :, _ue])
-            prec['D2D'][:, :, _ue] = np.linalg.solve(_wcov,
+            prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(_wcov),
                                                      wchan['D2D'][:, :, _ue])
 
             pwr = np.linalg.norm(prec['D2B'][:, :, _ue][:])**2 + \
@@ -498,8 +498,8 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
 
     # Perform the power bisection for each BS separately
     for _bs in range(B):
-        prec['B2D'][:, :, _bs] = np.linalg.solve(wcov['BS'][:, :, _bs],
-                                                 wchan['B2D'][:, :, _bs])
+        prec['B2D'][:, :, _bs] = np.dot(np.linalg.pinv(wcov['BS'][:, :, _bs]),
+                                        wchan['B2D'][:, :, _bs])
 
         pwr = np.linalg.norm(prec['B2D'][:, :, _bs][:])**2
 
@@ -519,8 +519,8 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
 
             _wcov = wcov['BS'][:, :, _bs] + np.eye(n_bx)*lvl
 
-            prec['B2D'][:, :, _bs] = np.linalg.solve(_wcov,
-                                                     wchan['B2D'][:, :, _bs])
+            prec['B2D'][:, :, _bs] = np.dot(np.linalg.pinv(_wcov),
+                                            wchan['B2D'][:, :, _bs])
 
             pwr = np.linalg.norm(prec['B2D'][:, :, _bs][:])**2
 
@@ -542,8 +542,8 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
 
     # Perform the power bisection for each BS separately
     for _ue in range(K):
-        prec['D2D'][:, :, _ue] = np.linalg.solve(wcov['UE'][:, :, _ue],
-                                                 wchan['D2D'][:, :, _ue])
+        prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(wcov['UE'][:, :, _ue]),
+                                        wchan['D2D'][:, :, _ue])
 
         pwr = np.linalg.norm(prec['D2D'][:, :, _ue][:])**2
 
@@ -564,8 +564,8 @@ def weighted_bisection2(chan, recv, weights, pwr_lim, threshold=1e-10):
 
             _wcov = wcov['UE'][:, :, _ue] + np.eye(n_dx)*lvl
 
-            prec['D2D'][:, :, _ue] = np.linalg.solve(_wcov,
-                                                     wchan['D2D'][:, :, _ue])
+            prec['D2D'][:, :, _ue] = np.dot(np.linalg.pinv(_wcov),
+                                            wchan['D2D'][:, :, _ue])
 
             pwr = np.linalg.norm(prec['D2D'][:, :, _ue][:])**2
 

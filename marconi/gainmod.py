@@ -61,15 +61,28 @@ class Uniform1(object):
 
         # Transmitter distance from receivers j from i
         dist_UE = np.zeros((K, K))
+        self.angles['D2D'] = np.zeros((K, K))
 
         for (i, j) in product(range(K), range(K)):
-            angles = np.r_[0:K] * 2*np.pi/K
-
             dist_UE[i, j] = np.abs(coord_recv[i] - coord_tran[j])
 
-        self.angles['D2D'] = np.zeros((K, K))
-        for k in range(K):
-            self.angles['D2D'][k,:] = np.mod(np.r_[0:K]+k, K)
+            a = coord_recv[j] - coord_tran[j]
+            a = np.array([np.real(a), np.imag(a)])
+
+            b = coord_recv[i] - coord_tran[j]
+            b = np.array([np.real(b), np.imag(b)])
+
+            alpha = np.dot(a, b) / (np.linalg.norm(b)*np.linalg.norm(a))
+
+            # Prevent some numerical issues in alpha being just over 1
+            if alpha > 1:
+                alpha = 1
+
+            # Overlapping users are in 90 degree angle
+            if np.linalg.norm(b) == 0:
+                alpha = 0
+
+            self.angles['D2D'][i, j] = np.arccos(alpha)
 
         dist_UE[dist_UE == 0] = 1e-3
 

@@ -5,6 +5,8 @@ import numpy as np
 import scipy.constants
 from scipy.io import loadmat
 
+import itertools
+
 import logging
 
 
@@ -28,7 +30,7 @@ class GaussianModel(object):
     """ This class defines a Gaussian channel generator. """
 
     # pylint: disable=R0201
-    def generate(self, sysparams, iterations=1):
+    def generate(self, sysparams, gainmod, iterations=1):
         """ Generate a Gaussian channel with given system parameters """
         (Nrx, Ntx, K, B) = sysparams
 
@@ -76,7 +78,7 @@ class PreModel(ChannelModel):
 
         return ret
 
-    def generate(self, sysparams, **kwargs):
+    def generate(self, sysparams, gainmod, **kwargs):
         """ Generate time-correlated Rayleigh fading channels.
 
         Args:
@@ -92,7 +94,7 @@ class PreModel(ChannelModel):
         # TOOD: this should part of the initialization
         (n_dx, n_bx, K, B) = sysparams
 
-        gains = kwargs.get('gains', None)
+        gains = gainmod.gains
 
         iterations = kwargs.get('iterations', 1)
 
@@ -158,7 +160,8 @@ class RicianModel(ChannelModel):
         """
         super(RicianModel, self).__init__(**kwargs)
 
-        speed_kmh = kwargs.get('K_factor', 0)
+        self.K_factor  = kwargs.get('K_factor', 10)
+        speed_kmh = kwargs.get('speed_kmh', 0)
 
         freq_sym_Hz = kwargs.get('freq_sym_Hz', 20e3)
         carrier_freq_Hz = kwargs.get('carrier_freq_Hz', 2e9)
@@ -177,7 +180,7 @@ class RicianModel(ChannelModel):
         # Angular Doppler frequencies
         self.phii = 2*np.pi * self.fd * np.cos(self.alpha)
 
-    def genmat(self, sysparams, gains=None, iterations=1):
+    def genmat(self, sysparams, gains, angles, iterations=1):
         """TODO: Docstring for genmat.
 
         Args:
@@ -192,13 +195,9 @@ class RicianModel(ChannelModel):
 
         (n_rx, n_tx, K, B) = sysparams
 
-        # TODO: Fix default gains
-        if gains is None:
-            gains = np.zeros((K, B))
+        gains0 = gains.reshape((K*B, 1), order='F')
 
-        gains = gains.reshape((K*B, 1), order='F')
-
-        path_powers = np.kron(np.kron(1, gains), np.ones((n_rx*n_tx, 1)))
+        path_powers = np.kron(np.kron(1, gains0), np.ones((n_rx*n_tx, 1)))
 
         # Timing vector
         tv = np.r_[0:iterations] * self.ts
@@ -217,13 +216,40 @@ class RicianModel(ChannelModel):
             paths[pth, :] = np.sqrt(path_powers[pth] / self.npath) * \
                 np.sum(np.exp(1j*theta), 0)
 
-        return paths.reshape((n_rx, n_tx, K, B, iterations), order='F')
+        # The rayleight fading component
+        H = paths.reshape((n_rx, n_tx, K, B, iterations), order='F')
 
-    def generate(self, sysparams, **kwargs):
+        ret = np.zeros((n_rx, n_tx, K, B, iterations), dtype='complex')
+
+        if B == 1:
+            angles = angles.reshape((K, 1), order='F')
+        if K == 1:
+            angles = angles.reshape((1, B), order='F')
+
+        for (k, b) in itertools.product(range(K), range(B)):
+            los_comp = np.zeros((1, n_tx), dtype='complex')
+
+            for t in range(n_tx):
+                los_comp[0, t] = np.exp(-1j*2*np.pi*t*1*angles[k, b])
+
+
+            los_comp = np.sqrt(n_tx)*los_comp
+            los_comp = np.tile(los_comp, (n_rx, 1))
+
+            for itr in range(iterations):
+                Kf = float(self.K_factor)
+
+                ret[:, :, k, b, itr] = np.sqrt(gains[k, b]) * (Kf / (Kf + 1)) * los_comp
+                ret[:, :, k, b, itr] += (1 / (Kf + 1)) * H[:, :, k, b, itr]
+
+        return ret
+
+    def generate(self, sysparams, gainmod, **kwargs):
         """ Generate time-correlated Rayleigh fading channels.
 
         Args:
             sysparams (tuple): System parameters (RX, TX, K, B).
+            gainmod: Gain model.
 
         Kwargs:
             iterations (int): Number of beamformer iterations.
@@ -235,7 +261,7 @@ class RicianModel(ChannelModel):
         # TOOD: this should part of the initialization
         (n_dx, n_bx, K, B) = sysparams
 
-        gains = kwargs.get('gains', None)
+        gains = gainmod.gains
 
         iterations = kwargs.get('iterations', 1)
 
@@ -250,20 +276,24 @@ class RicianModel(ChannelModel):
 
         chan['B2D'] = self.genmat((n_dx, n_bx, K, B),
                                   gains=gains['B2D'],
-                                  iterations=iterations)
+                                  iterations=iterations,
+                                  angles=gainmod.angles['B2D'])
 
         self.logger.info("* UE-BS")
-        chan['D2B'] = self.genmat((n_bx, n_dx, B, K),
-                                  gains=gains['D2D'],
-                                  iterations=iterations)
+        #chan['D2B'] = self.genmat((n_bx, n_dx, B, K),
+                                  #gains=gains['B2D'].transpose(),
+                                  #iterations=iterations,
+                                  #angles=gainmod.angles['B2D'].transpose())
+
+        chan['D2B'] = chan['B2D'].transpose(1, 0, 3, 2, 4)
 
         # BS-BS channels
         # gains = 0 * np.ones((B, B))
         # gains = 10**(gains / 10)
 
         self.logger.info("* BS-BS")
-        chan['B2B'] = self.genmat((n_bx, n_bx, B, B), gains=np.array([1]),
-                                  iterations=iterations)
+        chan['B2B'] = self.genmat((n_bx, n_bx, B, B), gains=np.array([[1]]),
+                                  iterations=iterations, angles=np.array([[0]]))
 
         # UE-UE channels
         self.logger.info("* UE-UE")
@@ -273,7 +303,8 @@ class RicianModel(ChannelModel):
         #    gains[k, k] = 0
 
         chan['D2D'] = self.genmat((n_dx, n_dx, K, K), iterations=iterations,
-                                  gains=gains['D2D'])
+                                  gains=gains['D2D'],
+                                  angles=gainmod.angles['D2D'])
 
         return chan
 
@@ -352,11 +383,12 @@ class ClarkesModel(ChannelModel):
 
         return paths.reshape((n_rx, n_tx, K, B, iterations), order='F')
 
-    def generate(self, sysparams, **kwargs):
+    def generate(self, sysparams, gainmod, **kwargs):
         """ Generate time-correlated Rayleigh fading channels.
 
         Args:
             sysparams (tuple): System parameters (RX, TX, K, B).
+            gainmod (gainmod): Gain model.
 
         Kwargs:
             iterations (int): Number of beamformer iterations.
@@ -368,7 +400,7 @@ class ClarkesModel(ChannelModel):
         # TOOD: this should part of the initialization
         (n_dx, n_bx, K, B) = sysparams
 
-        gains = kwargs.get('gains', None)
+        gains = gainmod.gains
 
         iterations = kwargs.get('iterations', 1)
 

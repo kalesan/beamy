@@ -242,7 +242,7 @@ class Simulator(object):
 
             chan = self.sysmodel.chanmod.generate(self.sysparams,
                                                   iterations=iterations,
-                                                  gains=self.sysmodel.gainmod.gains)
+                                                  gainmod=self.sysmodel.gainmod)
 
             beamformers = self.iterate_beamformers(chan)
 
