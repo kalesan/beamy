@@ -47,7 +47,7 @@ class Simulator(object):
         self.noise_pwr['UE'] = 1
 
         self.static_channel = kwargs.get('static_channel', True)
-        self.rate_conv_tol = 1e-4
+        self.rate_conv_tol = 1e-3
 
         self.uplink = kwargs.get('uplink', False)
 
@@ -220,6 +220,20 @@ class Simulator(object):
             recv['D2B'][:, :, :, :, ind] = irecv['D2B']
             recv['D2D'][0][:, :, :, ind] = irecv['D2D'][0]
             recv['D2D'][1][:, :, :, ind] = irecv['D2D'][1]
+
+            if np.abs(stats['rate'] - rate_prev) < self.rate_conv_tol:
+                for ind2 in range(ind, self.iterations['beamformer']):
+                    prec['B2D'][:, :, :, :, ind2] = iprec['B2D']
+                    prec['D2B'][:, :, :, :, ind2] = iprec['D2B']
+                    prec['D2D'][0][:, :, :, ind2] = iprec['D2D'][0]
+                    prec['D2D'][1][:, :, :, ind2] = iprec['D2D'][1]
+
+                    recv['B2D'][:, :, :, :, ind2] = irecv['B2D']
+                    recv['D2B'][:, :, :, :, ind2] = irecv['D2B']
+                    recv['D2D'][0][:, :, :, ind2] = irecv['D2D'][0]
+                    recv['D2D'][1][:, :, :, ind2] = irecv['D2D'][1]
+
+                return {'precoder': prec, 'receiver': recv}
 
             rate_prev = stats['rate']
 
