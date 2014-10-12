@@ -19,7 +19,7 @@ class Precoder(object):
     """ This is the base class for all precoder design. The generator function
     should be overridden to comply with the corresponding design."""
 
-    def __init__(self, sysparams, uplink=False, precision=1e-8):
+    def __init__(self, sysparams, uplink=False, precision=1e-5):
         (self.n_dx, self.n_bx, self.K, self.B) = sysparams
 
         self.n_sk = min(self.n_bx, self.n_dx)
@@ -198,7 +198,7 @@ class PrecoderWMMSE(Precoder):
 
             err = rates['D2B'] - rates['B2D']
 
-            if self.iteration < 10:
+            if self.iteration < 5:
                 self.stepsize = 1.1**(-0.75*self.itr)
             else:
                 self.stepsize = 1.1**(-self.itr)
@@ -220,7 +220,7 @@ class PrecoderWMMSE(Precoder):
             else:
                 self.lvl2[self.lvl2 < 0] = 0
 
-            if np.mod(self.itr, 100) == 0:
+            if np.mod(self.itr, 10) == 0:
                 self.logger.debug("[%d] err: %f, lvl: %f - %f, (%f), r1: %f, " +
                                   "r2: %f r3: %f, r4: %f", self.itr,
                                   np.linalg.norm(err[:]),
