@@ -312,6 +312,10 @@ class Simulator(object):
         stats_BS = None
         stats_D2D = None
 
+        proper_rel_cell = 1
+        proper_rel_BS  = 1
+        proper_rel_D2D = 1
+
         for rel in range(self.iterations['channel']):
             logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
 
@@ -331,16 +335,19 @@ class Simulator(object):
             stat_t = self.iteration_stats(chan, beamformers['receiver'],
                                           beamformers['precoder'])
 
-            if stats_cell is None:
-                stats_cell = stat_t
-            else:
-                stats_cell += stat_t
+            if not np.any(np.isnan(stats_t['rate'])):
+                if stats_cell is None:
+                    stats_cell = stat_t
+                else:
+                    stats_cell += stat_t
 
-            np.savez(resfile, R=stats_cell['rate']/(rel+1),
-                     S_B2D=stats_cell['S_B2D']/(rel+1),
-                     S_D2B=stats_cell['S_D2B']/(rel+1),
-                     S_D2D_2=stats_cell['S_D2D_1']/(rel+1),
-                     S_D2D_1=stats_cell['S_D2D_2']/(rel+1))
+                np.savez(resfile, R=stats_cell['rate']/proper_rel_cell,
+                        S_B2D=stats_cell['S_B2D']/proper_rel_cell,
+                        S_D2B=stats_cell['S_D2B']/proper_rel_cell,
+                        S_D2D_2=stats_cell['S_D2D_1']/proper_rel_cell,
+                        S_D2D_1=stats_cell['S_D2D_2']/proper_rel_cell)
+
+                proper_rell_cell += 1
 
             # BS
             resfile = "WMMSE-BS-%d-%d-%d-%d-%d-%d-%d.npz" % \
@@ -353,16 +360,19 @@ class Simulator(object):
             stat_t = self.iteration_stats(chan, beamformers['receiver'],
                                           beamformers['precoder'])
 
-            if stats_BS is None:
-                stats_BS = stat_t
-            else:
-                stats_BS += stat_t
+            if not np.any(np.isnan(stats_t['rate'])):
+                if stats_BS is None:
+                    stats_BS = stat_t
+                else:
+                    stats_BS += stat_t
 
-            np.savez(resfile, R=stats_BS['rate']/(rel+1),
-                     S_B2D=stats_BS['S_B2D']/(rel+1),
-                     S_D2B=stats_BS['S_D2B']/(rel+1),
-                     S_D2D_2=stats_BS['S_D2D_1']/(rel+1),
-                     S_D2D_1=stats_BS['S_D2D_2']/(rel+1))
+                np.savez(resfile, R=stats_BS['rate']/proper_rel_BS,
+                        S_B2D=stats_BS['S_B2D']/proper_rel_BS,
+                        S_D2B=stats_BS['S_D2B']/proper_rel_BS,
+                        S_D2D_2=stats_BS['S_D2D_1']/proper_rel_BS,
+                        S_D2D_1=stats_BS['S_D2D_2']/proper_rel_BS)
+
+                proper_rel_BS += 1
 
             # D2D
             resfile = "WMMSE-D2D-%d-%d-%d-%d-%d-%d-%d.npz" % \
@@ -375,14 +385,17 @@ class Simulator(object):
             stat_t = self.iteration_stats(chan, beamformers['receiver'],
                                           beamformers['precoder'])
 
-            if stats_D2D is None:
-                stats_D2D = stat_t
-            else:
-                stats_D2D += stat_t
+            if not np.any(np.isnan(stats_t['rate'])):
+                if stats_D2D is None:
+                    stats_D2D = stat_t
+                else:
+                    stats_D2D += stat_t
 
-            np.savez(resfile, R=stats_D2D['rate']/(rel+1),
-                     S_B2D=stats_D2D['S_B2D']/(rel+1),
-                     S_D2B=stats_D2D['S_D2B']/(rel+1),
-                     S_D2D_2=stats_D2D['S_D2D_1']/(rel+1),
-                     S_D2D_1=stats_D2D['S_D2D_2']/(rel+1))
+                np.savez(resfile, R=stats_D2D['rate']/proper_rel_D2D,
+                        S_B2D=stats_D2D['S_B2D']/proper_rel_D2D,
+                        S_D2B=stats_D2D['S_D2B']/proper_rel_D2D,
+                        S_D2D_2=stats_D2D['S_D2D_1']/proper_rel_D2D,
+                        S_D2D_1=stats_D2D['S_D2D_2']/proper_rel_D2D)
+
+                proper_rel_D2D += 1
 
