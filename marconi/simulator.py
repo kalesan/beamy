@@ -335,7 +335,7 @@ class Simulator(object):
             stat_t = self.iteration_stats(chan, beamformers['receiver'],
                                           beamformers['precoder'])
 
-            if not np.any(np.isnan(stats_t['rate'])):
+            if not np.any(np.isnan(stat_t['rate'])):
                 if stats_cell is None:
                     stats_cell = stat_t
                 else:
@@ -360,7 +360,7 @@ class Simulator(object):
             stat_t = self.iteration_stats(chan, beamformers['receiver'],
                                           beamformers['precoder'])
 
-            if not np.any(np.isnan(stats_t['rate'])):
+            if not np.any(np.isnan(stat_t['rate'])):
                 if stats_BS is None:
                     stats_BS = stat_t
                 else:
@@ -385,7 +385,7 @@ class Simulator(object):
             stat_t = self.iteration_stats(chan, beamformers['receiver'],
                                           beamformers['precoder'])
 
-            if not np.any(np.isnan(stats_t['rate'])):
+            if not np.any(np.isnan(stat_t['rate'])):
                 if stats_D2D is None:
                     stats_D2D = stat_t
                 else:
