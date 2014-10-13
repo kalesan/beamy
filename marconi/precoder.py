@@ -173,7 +173,7 @@ class PrecoderWMMSE(Precoder):
 
         err_prev = 0
 
-        while (np.linalg.norm(err[:]) > 1e-3) and \
+        while (np.linalg.norm(err[:]) > 1e-5) and \
               (np.abs(err_prev - np.linalg.norm(err[:])) > self.precision):
 
             weight = {}
@@ -198,7 +198,7 @@ class PrecoderWMMSE(Precoder):
 
             err = rates['D2B'] - rates['B2D']
 
-            if self.iteration < 10:
+            if self.iteration < 2:
                 self.stepsize = 1.1**(-0.15*self.itr)
             else:
                 self.stepsize = 1.1**(-self.itr)
@@ -220,7 +220,7 @@ class PrecoderWMMSE(Precoder):
             else:
                 self.lvl2[self.lvl2 < 0] = 0
 
-            if np.mod(self.itr, 100) == 0:
+            if np.mod(self.itr, 10) == 0:
                 self.logger.debug("[%d] err: %f, lvl: %f - %f, (%f), r1: %f, " +
                                   "r2: %f r3: %f, r4: %f", self.itr,
                                   np.linalg.norm(err[:]),
