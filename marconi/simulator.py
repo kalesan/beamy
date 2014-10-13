@@ -347,7 +347,8 @@ class Simulator(object):
                         S_D2D_2=stats_cell['S_D2D_1']/proper_rel_cell,
                         S_D2D_1=stats_cell['S_D2D_2']/proper_rel_cell)
 
-                proper_rell_cell += 1
+                import ipdb; ipdb.set_trace()  # XXX BREAKPOINT
+                proper_rel_cell += 1
 
             # BS
             resfile = "WMMSE-BS-%d-%d-%d-%d-%d-%d-%d.npz" % \
