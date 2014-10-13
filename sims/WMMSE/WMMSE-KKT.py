@@ -1,3 +1,6 @@
+#!/usr/bin/env python2 
+
+import argparse
 import sys
 sys.path.append("../../marconi")
 
@@ -36,20 +39,31 @@ logger.addHandler(handler)
 
 ####
 
+parser = argparse.ArgumentParser()
+
+parser.add_argument("radius", help="Cell radius in meters.", type=int)
+#parser.add_argument('d2d_dist', "Distance of the D2D pairs in meters.", 
+#                    type=int)
+
+args = parser.parse_args()
+radius = args.radius
+
 realizations = 100
 biterations = 100
 
-(dx, bx, K, B, SNR, radius, d2d_dist) = (2, 8, 4, 1, 15., 100., 20.)
+(dx, bx, K, B, SNR, d2d_dist) = (2, 8, 4, 1, 15., 20.)
 
-if __name__ == '__main__':
-    # The simulation cases
+K_factor = 10
 
-    radius = 15.0
-    gainmod = Uniform1(K, B, SNR=SNR, radius=radius, d2d_dist=d2d_dist)
-    sysmod = SystemModel(dx, bx, K, B, SNR=SNR, gainmod=gainmod,
-                        chanmod=RicianModel())
+# Header
+logger.info("Ndx: %d, Ntx: %d, K: %d, B: %d, SNR: %ddB, D2D dist: %dm " + 
+            "and Radius: %dm", dx, bx, K, B, SNR, d2d_dist, radius)
 
-    sim = Simulator(sysmod, precoder.PrecoderWMMSE(sysmod.sysparams),
-                    realizations=realizations, biterations=biterations)
+gainmod = Uniform1(K, B, SNR=SNR, radius=radius, d2d_dist=d2d_dist)
+sysmod = SystemModel(dx, bx, K, B, SNR=SNR, gainmod=gainmod,
+                    chanmod=RicianModel(K_factor=K_factor))
 
-    sim.run_iter(sysmod)
+sim = Simulator(sysmod, precoder.PrecoderWMMSE(sysmod.sysparams),
+                realizations=realizations, biterations=biterations)
+
+sim.run_iter(sysmod)
