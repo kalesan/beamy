@@ -12,8 +12,6 @@ import pandas as pd
 import utils
 import chanmod
 import precoder
-
-
 class Simulator(object):
     """ This is the top-level simulator class, which is used to define the
     simulation environments and run the simulations. """
@@ -269,3 +267,78 @@ class Simulator(object):
                 stats += stat_t
 
             np.savez(self.resfile, R=stats['rate']/(rel+1))
+
+    def run_iter(self,sysmod):
+        (_rx, _tx, _K, _B) = sysmod.sysparams
+        _SNR = sysmod.SNR
+
+        logger = logging.getLogger(__name__)
+
+        # Initialize the random number generator
+        np.random.seed(self.seed)
+
+        stats_cell = None
+        stats_BS = None
+        stats_D2D = None
+
+        for rel in range(self.iterations['channel']):
+            logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
+
+            iterations = self.iterations['beamformer']
+            chan = self.sysmodel.chanmod.generate(self.sysparams,
+                                                  iterations=iterations,
+                                                  gainmod=self.sysmodel.gainmod)
+
+            # Cell
+            resfile = "WMMSE-Cell-%d-%d-%d-%d-%d-%d-%d.npz" % \
+                (_rx, _tx, _K, _B, _SNR, sysmod.gainmod.radius, sysmod.gainmod.d2d_dist)
+
+            self.active_links = {'BS': True, 'D2D': True}
+
+            beamformers = self.iterate_beamformers(chan)
+
+            stat_t = self.iteration_stats(chan, beamformers['receiver'],
+                                          beamformers['precoder'])
+
+            if stats_cell is None:
+                stats_cell = stat_t
+            else:
+                stats_cell += stat_t
+
+            np.savez(resfile, R=stats_cell['rate']/(rel+1))
+
+            # BS
+            resfile = "WMMSE-BS-%d-%d-%d-%d-%d-%d-%d.npz" % \
+                (_rx, _tx, _K, _B, _SNR, sysmod.gainmod.radius, sysmod.gainmod.d2d_dist)
+
+            self.active_links = {'BS': True, 'D2D': False}
+
+            beamformers = self.iterate_beamformers(chan)
+
+            stat_t = self.iteration_stats(chan, beamformers['receiver'],
+                                          beamformers['precoder'])
+
+            if stats_BS is None:
+                stats_BS = stat_t
+            else:
+                stats_BS += stat_t
+
+            np.savez(resfile, R=stats_BS['rate']/(rel+1))
+
+            # D2D
+            resfile = "WMMSE-D2D-%d-%d-%d-%d-%d-%d-%d.npz" % \
+                (_rx, _tx, _K, _B, _SNR, sysmod.gainmod.radius, sysmod.gainmod.d2d_dist)
+
+            self.active_links = {'BS': False, 'D2D': True}
+
+            beamformers = self.iterate_beamformers(chan)
+
+            stat_t = self.iteration_stats(chan, beamformers['receiver'],
+                                          beamformers['precoder'])
+
+            if stats_D2D is None:
+                stats_D2D = stat_t
+            else:
+                stats_D2D += stat_t
+
+            np.savez(resfile, R=stats_D2D['rate']/(rel+1))
