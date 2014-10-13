@@ -233,7 +233,7 @@ class RicianModel(ChannelModel):
                 los_comp[0, t] = np.exp(-1j*2*np.pi*t*1*angles[k, b])
 
 
-            los_comp = np.sqrt(n_tx)*los_comp
+            los_comp = los_comp/np.sqrt(n_tx)
             los_comp = np.tile(los_comp, (n_rx, 1))
 
             for itr in range(iterations):
