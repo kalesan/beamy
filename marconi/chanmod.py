@@ -239,8 +239,10 @@ class RicianModel(ChannelModel):
             for itr in range(iterations):
                 Kf = float(self.K_factor)
 
-                ret[:, :, k, b, itr] = np.sqrt(gains[k, b]) * (Kf / (Kf + 1)) * los_comp
-                ret[:, :, k, b, itr] += (1 / (Kf + 1)) * H[:, :, k, b, itr]
+                ret[:, :, k, b, itr] = np.sqrt(gains[k, b]) * \
+                    np.sqrt(Kf / (Kf + 1)) * los_comp
+                ret[:, :, k, b, itr] += np.sqrt(1 / (Kf + 1)) * \
+                    H[:, :, k, b, itr]
 
         return ret
 
@@ -307,6 +309,7 @@ class RicianModel(ChannelModel):
                                   angles=gainmod.angles['D2D'])
 
         return chan
+
 
 class ClarkesModel(ChannelModel):
     """Docstring for ClarkesModel. """
