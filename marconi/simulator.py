@@ -12,6 +12,7 @@ import pandas as pd
 import utils
 import chanmod
 import precoder
+
 class Simulator(object):
     """ This is the top-level simulator class, which is used to define the
     simulation environments and run the simulations. """
@@ -65,7 +66,9 @@ class Simulator(object):
         Returns: dictionary of the statistics
 
         """
-        (K, B) = chan['B2D'].shape[2:]
+        (n_dx, n_bx, K, B) = chan['B2D'].shape
+
+        n_sk = min(n_dx, n_bx)
 
         cov = utils.sigcov(chan, prec, self.noise_pwr)
 
@@ -80,7 +83,25 @@ class Simulator(object):
         for (_ue, _bs) in itertools.product(range(K), range(B)):
             rate += min(rates['B2D'][_ue, _bs], rates['D2B'][_bs, _ue])
 
-        return {'rate': rate}
+        streams_B2D = 0
+        streams_D2B = 0
+        streams_D2D_1 = 0
+        streams_D2D_2 = 0
+
+        threshold = 1e-2
+
+        for _bs in range(B):
+            streams_B2D = np.sum(rates['B2D'][:, _bs] > threshold)
+            streams_D2B = np.sum(rates['D2B'][_bs, :] > threshold)
+
+        for _ue in range(K):
+            streams_D2D_1 = np.sum(rates['D2D'][0][:] > threshold)
+            streams_D2D_2 = np.sum(rates['D2D'][1][:] > threshold)
+
+        return {'rate': rate, 'stream_alloc': {'B2D': streams_B2D,
+                                               'D2B': streams_D2B,
+                                               'D2D_1': streams_D2D_1,
+                                               'D2D_2': streams_D2D_2}}
 
     def iteration_stats(self, chan_all, recv, prec):
         """ Collect iteration statistics from the given precoders and receivers.
@@ -97,6 +118,10 @@ class Simulator(object):
         # TODO: Generate rates for all scenarios and sum them up
 
         rate = np.zeros((self.iterations['beamformer']))
+        streams_B2D = np.zeros((self.iterations['beamformer']))
+        streams_D2B = np.zeros((self.iterations['beamformer']))
+        streams_D2D_1 = np.zeros((self.iterations['beamformer']))
+        streams_D2D_2 = np.zeros((self.iterations['beamformer']))
 
         for ind in range(0, self.iterations['beamformer']):
             iprec = {}
@@ -121,8 +146,14 @@ class Simulator(object):
             stats = self.stats(ichan, iprec, irecv)
 
             rate[ind] = stats['rate']
+            streams_B2D[ind] = stats['stream_alloc']['B2D']
+            streams_D2B[ind] = stats['stream_alloc']['D2B']
+            streams_D2D_1[ind] = stats['stream_alloc']['D2D_1']
+            streams_D2D_2[ind] = stats['stream_alloc']['D2D_2']
 
-        return pd.DataFrame({'rate': rate})
+        return pd.DataFrame({'rate': rate, 'S_B2D': streams_B2D,
+                             'S_D2B': streams_D2B, 'S_D2D_1': streams_D2D_1,
+                             'S_D2D_2': streams_D2D_2})
 
     def iterate_beamformers(self, chan_all):
         """ Iteratively generate the receive and transmit beaformers for the
@@ -305,7 +336,11 @@ class Simulator(object):
             else:
                 stats_cell += stat_t
 
-            np.savez(resfile, R=stats_cell['rate']/(rel+1))
+            np.savez(resfile, R=stats_cell['rate']/(rel+1),
+                     S_B2D=stats_cell['S_B2D']/(rel+1),
+                     S_D2B=stats_cell['S_D2B']/(rel+1),
+                     S_D2D_2=stats_cell['S_D2D_1']/(rel+1),
+                     S_D2D_1=stats_cell['S_D2D_2']/(rel+1))
 
             # BS
             resfile = "WMMSE-BS-%d-%d-%d-%d-%d-%d-%d.npz" % \
@@ -323,7 +358,11 @@ class Simulator(object):
             else:
                 stats_BS += stat_t
 
-            np.savez(resfile, R=stats_BS['rate']/(rel+1))
+            np.savez(resfile, R=stats_BS['rate']/(rel+1),
+                     S_B2D=stats_BS['S_B2D']/(rel+1),
+                     S_D2B=stats_BS['S_D2B']/(rel+1),
+                     S_D2D_2=stats_BS['S_D2D_1']/(rel+1),
+                     S_D2D_1=stats_BS['S_D2D_2']/(rel+1))
 
             # D2D
             resfile = "WMMSE-D2D-%d-%d-%d-%d-%d-%d-%d.npz" % \
@@ -341,4 +380,9 @@ class Simulator(object):
             else:
                 stats_D2D += stat_t
 
-            np.savez(resfile, R=stats_D2D['rate']/(rel+1))
+            np.savez(resfile, R=stats_D2D['rate']/(rel+1),
+                     S_B2D=stats_D2D['S_B2D']/(rel+1),
+                     S_D2B=stats_D2D['S_D2B']/(rel+1),
+                     S_D2D_2=stats_D2D['S_D2D_1']/(rel+1),
+                     S_D2D_1=stats_D2D['S_D2D_2']/(rel+1))
+
