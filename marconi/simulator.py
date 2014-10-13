@@ -347,7 +347,6 @@ class Simulator(object):
                         S_D2D_2=stats_cell['S_D2D_1']/proper_rel_cell,
                         S_D2D_1=stats_cell['S_D2D_2']/proper_rel_cell)
 
-                import ipdb; ipdb.set_trace()  # XXX BREAKPOINT
                 proper_rel_cell += 1
 
             # BS
