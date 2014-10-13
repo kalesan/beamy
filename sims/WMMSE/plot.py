@@ -4,6 +4,7 @@ import re
 import numpy as np
 import pylab as plt
 
+
 nameconv = {'WMMSE-BS': 'BS', 'WMMSE-D2D': 'D2D',
             'WMMSE-Cell': 'Cellular + D2D'}
 
@@ -80,4 +81,5 @@ for case in cases.keys():
 
     legend = plt.legend(loc='lower right', shadow=True, fontsize='x-large')
 
+plt.savefig("figure1.png")
 plt.show()
