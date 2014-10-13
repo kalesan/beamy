@@ -220,7 +220,7 @@ class PrecoderWMMSE(Precoder):
             else:
                 self.lvl2[self.lvl2 < 0] = 0
 
-            if np.mod(self.itr, 10) == 0:
+            if np.mod(self.itr, 100) == 0:
                 self.logger.debug("[%d] err: %f, lvl: %f - %f, (%f), r1: %f, " +
                                   "r2: %f r3: %f, r4: %f", self.itr,
                                   np.linalg.norm(err[:]),
