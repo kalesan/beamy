@@ -21,7 +21,7 @@ for sim in fls:
     name = m.group(1)
     n_rx = m.group(2)
     n_tx = m.group(3)
-    n_ue = m.group(4)
+    n_ue = float(m.group(4))
     # n_bs = m.group(5)
     snr = m.group(6)
     radius = m.group(7)
@@ -35,15 +35,25 @@ for sim in fls:
     if name not in cases[case]:
         cases[case][name] = {}
         cases[case][name]['x'] = []
-        cases[case][name]['y'] = []
+        cases[case][name]['R'] = []
+        cases[case][name]['S_B2D'] = []
+        cases[case][name]['S_D2B'] = []
+        cases[case][name]['S_D2D_1'] = []
+        cases[case][name]['S_D2D_2'] = []
 
     data = np.load(sim)
 
     cases[case][name]['x'].append(int(radius))
-    cases[case][name]['y'].append(data['R'][-1])
+    cases[case][name]['R'].append(data['R'][-1] / n_ue)
+    cases[case][name]['S_B2D'].append(data['S_B2D'][-1] / n_ue)
+    cases[case][name]['S_D2B'].append(data['S_D2B'][-1] / n_ue)
+    cases[case][name]['S_D2D_1'].append(data['S_D2D_1'][-1] / n_ue)
+    cases[case][name]['S_D2D_2'].append(data['S_D2D_2'][-1] / n_ue)
     cases[case][name]['reffile'] = sim
 
 i = 1
+
+# Rate
 for case in cases.keys():
     plt.figure(i)
     i += 1
@@ -54,14 +64,14 @@ for case in cases.keys():
     for name in cases[case].keys():
         plot = cases[case][name]
         plot['x'] = np.array(plot['x'])
-        plot['y'] = np.array(plot['y'])
+        plot['R'] = np.array(plot['R'])
 
         I = plot['x'].argsort()[::-1]
 
         plot['x'] = plot['x'][I]
-        plot['y'] = plot['y'][I]
+        plot['R'] = plot['R'][I]
 
-        plt.plot(plot['x'], plot['y'], plotstyle[name], label=nameconv[name])
+        plt.plot(plot['x'], plot['R'], plotstyle[name], label=nameconv[name])
 
     m = re.search('(.*)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+).npz',
                   cases[case][name]['reffile'])
@@ -82,4 +92,61 @@ for case in cases.keys():
     legend = plt.legend(loc='lower right', shadow=True, fontsize='x-large')
 
 plt.savefig("figure1.png")
+
+# Stream Allocation
+for case in cases.keys():
+    plt.figure(i)
+    i += 1
+
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
+
+    for name in cases[case].keys():
+        if name != "WMMSE-Cell":
+            continue
+
+        plot = cases[case][name]
+
+        plot['x'] = np.array(plot['x'])
+        plot['R'] = np.array(plot['R'])
+        plot['S_B2D'] = np.array(plot['S_B2D'])
+        plot['S_D2B'] = np.array(plot['S_D2B'])
+        plot['S_D2D_1'] = np.array(plot['S_D2D_1'])
+        plot['S_D2D_2'] = np.array(plot['S_D2D_2'])
+
+        I = plot['x'].argsort()[::-1]
+
+        plot['x'] = plot['x'][I]
+        plot['R'] = plot['R'][I]
+
+        plot['S_B2D'] = plot['S_B2D'][I]
+        plot['S_D2B'] = plot['S_D2B'][I]
+        plot['S_D2D_1'] = plot['S_D2D_1'][I]
+        plot['S_D2D_2'] = plot['S_D2D_2'][I]
+
+        S_plt_style = {'S_B2D': 'kd-', 'S_D2B': 'bs-', 'S_D2D_1': 'ro-',
+                       'S_D2D_2': 'rs--'}
+
+        plt.plot(plot['x'], plot['S_B2D'], S_plt_style['S_B2D'], label='B2D')
+        plt.plot(plot['x'], plot['S_D2B'], S_plt_style['S_D2B'], label='D2B')
+        plt.plot(plot['x'], plot['S_D2D_1'], S_plt_style['S_D2D_1'], label='D2D (1)')
+        plt.plot(plot['x'], plot['S_D2D_2'], S_plt_style['S_D2D_2'], label='D2D (2)')
+
+    m = re.search('(.*)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+).npz',
+                  cases[case][name]['reffile'])
+
+    name = m.group(1)
+    n_rx = m.group(2)
+    n_tx = m.group(3)
+    n_ue = m.group(4)
+    # n_bs = m.group(5)
+    snr = m.group(6)
+    radius = m.group(7)
+    d2d_dist = m.group(8)
+
+    plt.xlabel('Cell radius.')
+    plt.ylabel('Average stream allocation [bits/sec/Hz].')
+    plt.title('$N_{\\mathrm B}=%s, N_{\\mathrm T}=%s, K=%s$, SNR=$%s$dB and D2D distance = $%s$ m' % (n_tx, n_rx, n_ue, snr, d2d_dist))
+
+    legend = plt.legend(loc='lower right', shadow=True, fontsize='x-large')
 plt.show()
