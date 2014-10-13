@@ -52,7 +52,6 @@ for sim in fls:
     cases[case][name]['reffile'] = sim
 
 i = 1
-
 # Rate
 for case in cases.keys():
     plt.figure(i)
@@ -68,10 +67,10 @@ for case in cases.keys():
 
         I = plot['x'].argsort()[::-1]
 
-        plot['x'] = plot['x'][I]
-        plot['R'] = plot['R'][I]
+        x = plot['x'][I].copy()
+        R = plot['R'][I].copy()
 
-        plt.plot(plot['x'], plot['R'], plotstyle[name], label=nameconv[name])
+        plt.plot(x, R, plotstyle[name], label=nameconv[name])
 
     m = re.search('(.*)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+).npz',
                   cases[case][name]['reffile'])
@@ -107,30 +106,23 @@ for case in cases.keys():
 
         plot = cases[case][name]
 
-        plot['x'] = np.array(plot['x'])
-        plot['R'] = np.array(plot['R'])
-        plot['S_B2D'] = np.array(plot['S_B2D'])
-        plot['S_D2B'] = np.array(plot['S_D2B'])
-        plot['S_D2D_1'] = np.array(plot['S_D2D_1'])
-        plot['S_D2D_2'] = np.array(plot['S_D2D_2'])
+        x = np.array(plot['x'])
 
         I = plot['x'].argsort()[::-1]
 
-        plot['x'] = plot['x'][I]
-        plot['R'] = plot['R'][I]
-
-        plot['S_B2D'] = plot['S_B2D'][I]
-        plot['S_D2B'] = plot['S_D2B'][I]
-        plot['S_D2D_1'] = plot['S_D2D_1'][I]
-        plot['S_D2D_2'] = plot['S_D2D_2'][I]
+        R = np.array(plot['R'])
+        S_B2D = np.array(plot['S_B2D'])
+        S_D2B = np.array(plot['S_D2B'])
+        S_D2D_1 = np.array(plot['S_D2D_1'])
+        S_D2D_2 = np.array(plot['S_D2D_2'])
 
         S_plt_style = {'S_B2D': 'kd-', 'S_D2B': 'bs-', 'S_D2D_1': 'ro-',
                        'S_D2D_2': 'rs--'}
 
-        plt.plot(plot['x'], plot['S_B2D'], S_plt_style['S_B2D'], label='B2D')
-        plt.plot(plot['x'], plot['S_D2B'], S_plt_style['S_D2B'], label='D2B')
-        plt.plot(plot['x'], plot['S_D2D_1'], S_plt_style['S_D2D_1'], label='D2D (1)')
-        plt.plot(plot['x'], plot['S_D2D_2'], S_plt_style['S_D2D_2'], label='D2D (2)')
+        plt.plot(x[I], S_B2D[I], S_plt_style['S_B2D'], label='B2D')
+        plt.plot(x[I], S_D2B[I], S_plt_style['S_D2B'], label='D2B')
+        plt.plot(x[I], S_D2D_1[I], S_plt_style['S_D2D_1'], label='D2D (1)')
+        plt.plot(x[I], S_D2D_2[I], S_plt_style['S_D2D_2'], label='D2D (2)')
 
     m = re.search('(.*)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+).npz',
                   cases[case][name]['reffile'])
