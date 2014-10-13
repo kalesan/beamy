@@ -83,10 +83,10 @@ class Simulator(object):
         for (_ue, _bs) in itertools.product(range(K), range(B)):
             rate += min(rates['B2D'][_ue, _bs], rates['D2B'][_bs, _ue])
 
-        streams_B2D = 0
-        streams_D2B = 0
-        streams_D2D_1 = 0
-        streams_D2D_2 = 0
+        streams_B2D = 0.
+        streams_D2B = 0.
+        streams_D2D_1 = 0.
+        streams_D2D_2 = 0.
 
         threshold = 1e-2
 
