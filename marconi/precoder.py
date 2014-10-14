@@ -203,21 +203,19 @@ class PrecoderWMMSE(Precoder):
             else:
                 self.stepsize = 1.1**(-self.itr)
 
-            #if not use_d2d:
-                #self.stepsize = 0.5 / np.sqrt(self.itr)
-
             t = np.minimum(rates['D2B'], rates['B2D'])
 
-            self.lvl1 = self.lvl1 + self.stepsize*(rates['D2B'] - rates['B2D'])
             if not use_d2d:
-                self.lvl1[self.lvl1 < 0] = 1e-2
-            else:
-                self.lvl1[self.lvl1 < 0] = 0
+                self.lvl2 = self.lvl2 + self.stepsize*(rates['B2D'] - rates['D2B'])
+                self.lvl2[self.lvl2 < 0] = 1e-5
 
-            self.lvl2 = 1 - self.lvl1
-            if not use_d2d:
-                self.lvl2[self.lvl2 < 0] = 1e-2
+                self.lvl1 = 1 - self.lvl2
+                self.lvl1[self.lvl1 < 0] = 1e-5
             else:
+                self.lvl1 = self.lvl1 + self.stepsize*(rates['D2B'] - rates['B2D'])
+                self.lvl2 = 1 - self.lvl1
+
+                self.lvl1[self.lvl1 < 0] = 0
                 self.lvl2[self.lvl2 < 0] = 0
 
             if np.mod(self.itr, 100) == 0:
