@@ -218,6 +218,9 @@ class Simulator(object):
         rate_prev = np.inf
 
         for ind in range(1, self.iterations['beamformer']):
+            iprec_prev = iprec
+            irecv_prev = irecv
+
             ichan = {}
             ichan['B2D'] = chan_all['B2D'][:, :, :, :, ind]
             ichan['D2B'] = chan_all['D2B'][:, :, :, :, ind]
@@ -239,6 +242,22 @@ class Simulator(object):
             logger.info("r0: %.4f r1: %.4f r2: %.4f r3: %.4f",
                         rates['D2B'][:].sum(), rates['B2D'][:].sum(),
                         rates['D2D'][0][:].sum(), rates['D2D'][1][:].sum())
+
+
+            # TODO: Try to figure out what went wrong
+            if np.any(np.isnan(stats['rate'])):
+                for ind2 in range(ind, self.iterations['beamformer']):
+                    prec['B2D'][:, :, :, :, ind2] = iprec_prev['B2D']
+                    prec['D2B'][:, :, :, :, ind2] = iprec_prev['D2B']
+                    prec['D2D'][0][:, :, :, ind2] = iprec_prev['D2D'][0]
+                    prec['D2D'][1][:, :, :, ind2] = iprec_prev['D2D'][1]
+
+                    recv['B2D'][:, :, :, :, ind2] = irecv_prev['B2D']
+                    recv['D2B'][:, :, :, :, ind2] = irecv_prev['D2B']
+                    recv['D2D'][0][:, :, :, ind2] = irecv_prev['D2D'][0]
+                    recv['D2D'][1][:, :, :, ind2] = irecv_prev['D2D'][1]
+
+                return {'precoder': prec, 'receiver': recv}
 
             prec['B2D'][:, :, :, :, ind] = iprec['B2D']
             prec['D2B'][:, :, :, :, ind] = iprec['D2B']
