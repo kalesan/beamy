@@ -192,6 +192,9 @@ class PrecoderWMMSE(Precoder):
 
             rates = utils.rate(chan, prec, noise_pwr)
 
+            rates['D2B'] = rates['D2B'].sum(0)
+            rates['B2D'] = rates['B2D'].sum(0)
+
             rates['D2B'] = rates['D2B'].transpose(1, 0)
 
             err_prev = np.linalg.norm(err[:])

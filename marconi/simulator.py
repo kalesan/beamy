@@ -81,7 +81,8 @@ class Simulator(object):
 
         rate = rates['D2D'][0].sum() + rates['D2D'][1].sum()
         for (_ue, _bs) in itertools.product(range(K), range(B)):
-            rate += min(rates['B2D'][_ue, _bs], rates['D2B'][_bs, _ue])
+            rate += min(rates['B2D'].sum(0)[_ue, _bs],
+                        rates['D2B'].sum(0)[_bs, _ue])
 
         streams_B2D = 0.
         streams_D2B = 0.
@@ -91,12 +92,12 @@ class Simulator(object):
         threshold = 1e-2
 
         for _bs in range(B):
-            streams_B2D = np.sum(rates['B2D'][:, _bs] > threshold)
-            streams_D2B = np.sum(rates['D2B'][_bs, :] > threshold)
+            streams_B2D += np.sum(rates['B2D'][:, :, _bs][:] > threshold)
+            streams_D2B += np.sum(rates['D2B'][:, _bs, :][:] > threshold)
 
         for _ue in range(K):
-            streams_D2D_1 = np.sum(rates['D2D'][0][:] > threshold)
-            streams_D2D_2 = np.sum(rates['D2D'][1][:] > threshold)
+            streams_D2D_1 += np.sum(rates['D2D'][0][:, _ue][:] > threshold)
+            streams_D2D_2 += np.sum(rates['D2D'][1][:, _ue][:] > threshold)
 
         return {'rate': rate, 'stream_alloc': {'B2D': streams_B2D,
                                                'D2B': streams_D2B,

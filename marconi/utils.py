@@ -266,11 +266,11 @@ def rate(chan, prec, noise_pwr, cov=None, errm=None):
 
     rates = {}
 
-    rates['B2D'] = np.zeros((K, B))
-    rates['D2B'] = np.zeros((B, K))
+    rates['B2D'] = np.zeros((n_sk, K, B))
+    rates['D2B'] = np.zeros((n_sk, B, K))
     rates['D2D'] = [[], []]
-    rates['D2D'][0] = np.zeros(K)
-    rates['D2D'][1] = np.zeros(K)
+    rates['D2D'][0] = np.zeros((n_dx, K))
+    rates['D2D'][1] = np.zeros((n_dx, K))
 
     # Signal covariance matrix
     if cov is None:
@@ -281,19 +281,19 @@ def rate(chan, prec, noise_pwr, cov=None, errm=None):
     if errm is None:
         errm = mse(chan, recv, prec, noise_pwr, cov=cov)
 
-    for (_ue, _bs) in itertools.product(range(K), range(B)):
-        _tmp = -np.log2(np.linalg.det(errm['B2D'][:, :, _ue, _bs]))
-        rates['B2D'][_ue, _bs] = np.real(_tmp)
+    for (_ue, _bs, _sk) in itertools.product(range(K), range(B), range(n_sk)):
+        _tmp = -np.log2(errm['B2D'][_sk, _sk, _ue, _bs])
+        rates['B2D'][_sk, _ue, _bs] = np.real(_tmp)
 
-        _tmp = -np.log2(np.linalg.det(errm['D2B'][:, :, _bs, _ue]))
-        rates['D2B'][_bs, _ue] = np.real(_tmp)
+        _tmp = -np.log2(errm['D2B'][_sk, _sk, _bs, _ue])
+        rates['D2B'][_sk, _bs, _ue] = np.real(_tmp)
 
-    for _ue in range(K):
-        _tmp = -np.log2(np.linalg.det(errm['D2D'][0][:, :, _ue]))
-        rates['D2D'][0][_ue] = np.real(_tmp)
+    for (_ue, _sk) in itertools.product(range(K), range(n_dx)):
+        _tmp = -np.log2(errm['D2D'][0][_sk, _sk, _ue])
+        rates['D2D'][0][_sk, _ue] = np.real(_tmp)
 
-        _tmp = -np.log2(np.linalg.det(errm['D2D'][1][:, :, _ue]))
-        rates['D2D'][1][_ue] = np.real(_tmp)
+        _tmp = -np.log2(errm['D2D'][1][_sk, _sk, _ue])
+        rates['D2D'][1][_sk, _ue] = np.real(_tmp)
 
     return rates
 
