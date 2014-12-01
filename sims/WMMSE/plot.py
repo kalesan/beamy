@@ -44,11 +44,11 @@ for sim in fls:
     data = np.load(sim)
 
     cases[case][name]['x'].append(int(radius))
-    cases[case][name]['R'].append(data['R'][-1] / n_ue)
-    cases[case][name]['S_B2D'].append(data['S_B2D'][-1] / n_ue)
-    cases[case][name]['S_D2B'].append(data['S_D2B'][-1] / n_ue)
-    cases[case][name]['S_D2D_1'].append(data['S_D2D_1'][-1] / n_ue)
-    cases[case][name]['S_D2D_2'].append(data['S_D2D_2'][-1] / n_ue)
+    cases[case][name]['R'].append(data['R'][-1])
+    cases[case][name]['S_B2D'].append(data['S_B2D'][-1])
+    cases[case][name]['S_D2B'].append(data['S_D2B'][-1])
+    cases[case][name]['S_D2D_1'].append(data['S_D2D_1'][-1])
+    cases[case][name]['S_D2D_2'].append(data['S_D2D_2'][-1])
     cases[case][name]['reffile'] = sim
 
 i = 1

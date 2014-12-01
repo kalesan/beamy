@@ -49,7 +49,7 @@ args = parser.parse_args()
 radius = args.radius
 
 realizations = 100
-biterations = 100
+biterations = 200
 
 (dx, bx, K, B, SNR, d2d_dist) = (2, 8, 4, 1, 15., 20.)
 
