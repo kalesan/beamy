@@ -25,6 +25,8 @@ class Simulator(object):
         self.iterations = {'channel': kwargs.get('realizations', 20),
                            'beamformer': kwargs.get('biterations', 50)}
 
+        self.txrxiter = kwargs.get('txrxiter', 1)
+
         self.seed = kwargs.get('seed', 1841)
 
         self.resfile = kwargs.get('resfile', 'res.npz')
@@ -90,6 +92,7 @@ class Simulator(object):
 
         prec = np.zeros((n_tx, n_sk, n_ue, n_bs, self.iterations['beamformer']),
                         dtype='complex')
+
         recv = np.zeros((n_rx, n_sk, n_ue, n_bs, self.iterations['beamformer']),
                         dtype='complex')
 
@@ -113,12 +116,13 @@ class Simulator(object):
 
             logger.info("Iteration %d/%d", ind, self.iterations['beamformer'])
 
-            iprec = self.prec.generate(chan, irecv, iprec, self.noise_pwr,
-                                       pwr_lim=self.pwr_lim)
+            for txrxi in range(0, self.txrxiter):
+                iprec = self.prec.generate(chan, irecv, iprec, self.noise_pwr,
+                                        pwr_lim=self.pwr_lim)
 
-            cov = utils.sigcov(chan, iprec, self.noise_pwr)
+                cov = utils.sigcov(chan, iprec, self.noise_pwr)
 
-            irecv = utils.lmmse(chan, iprec, self.noise_pwr, cov=cov)
+                irecv = utils.lmmse(chan, iprec, self.noise_pwr, cov=cov)
 
             errm = utils.mse(chan, irecv, iprec, self.noise_pwr, cov=cov)
 
