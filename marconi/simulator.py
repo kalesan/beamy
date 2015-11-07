@@ -35,7 +35,7 @@ class Simulator(object):
         self.noise_pwr = 10**-(kwargs.get('SNR', 20)/10)
 
         self.static_channel = kwargs.get('static_channel', True)
-        self.rate_conv_tol = 1e-4
+        self.rate_conv_tol = 1e-6
 
         self.uplink = kwargs.get('uplink', False)
 
