@@ -3,7 +3,7 @@ sys.path.append("../../marconi")
 
 # from multiprocessing import Process
 
-import logging
+import logging 
 from simulator import Simulator
 
 import precoder
@@ -30,17 +30,33 @@ logger.addHandler(handler)
 
 ####
 realizations = 10
-biterations = 50
+biterations = 150
 
 
 def simulate(_rx, _tx, _K, _B, _SNR):
     sparams = (_rx, _tx, _K, _B)
 
     wmmse_res_file = "WMMSE-MAC-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True),
+    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
                     sysparams=sparams,
                     realizations=realizations, biterations=biterations,
                     resfile=wmmse_res_file, SNR=_SNR, uplink=True)
+
+    sim.run()
+
+    wmmse_res_file = "WMMSE-MAC-5-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
+                    sysparams=sparams,
+                    realizations=realizations, biterations=biterations,
+                    resfile=wmmse_res_file, SNR=_SNR, uplink=True, txrxiter=5)
+
+    sim.run()
+
+    wmmse_res_file = "WMMSE-MAC-10-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
+                    sysparams=sparams,
+                    realizations=realizations, biterations=biterations,
+                    resfile=wmmse_res_file, SNR=_SNR, uplink=True, txrxiter=10)
 
     sim.run()
 
@@ -53,14 +69,14 @@ def simulate(_rx, _tx, _K, _B, _SNR):
 
 
 if __name__ == '__main__':
-    SNR = 15
+    SNR = 25
 
     # The simulation cases
-    (rx, tx, K, B) = (2, 4, 2, 1)
+    (rx, tx, K, B) = (4, 4, 2, 1)
     simulate(rx, tx, K, B, SNR)
 
-    (rx, tx, K, B) = (2, 4, 4, 1)
-    simulate(rx, tx, K, B, SNR)
+    # (rx, tx, K, B) = (2, 4, 4, 1)
+    # simulate(rx, tx, K, B, SNR)
 
-    (rx, tx, K, B) = (4, 8, 4, 1)
-    simulate(rx, tx, K, B, SNR)
+    # (rx, tx, K, B) = (4, 8, 4, 1)
+    # simulate(rx, tx, K, B, SNR)

@@ -4,8 +4,14 @@ import re
 import numpy as np
 import pylab as plt
 
-nameconv = {'WMMSE-MAC': 'WMMSE', 'SDP-MAC': 'SDP'}
-plotstyle = {'WMMSE-MAC': 'k--', 'SDP-MAC': 'r-'}
+nameconv = {'WMMSE-MAC': 'WMMSE', 
+            'WMMSE-MAC-5': 'WMMSE (5 iterations)', 
+            'WMMSE-MAC-10': 'WMMSE (10 iterations)', 
+            'SDP-MAC': 'SDP'}
+plotstyle = {'WMMSE-MAC': 'k.-', 
+            'WMMSE-MAC-5': 'b*-', 
+            'WMMSE-MAC-10': 'gd-', 
+            'SDP-MAC': 'r-'}
 
 
 def plot_sim(filename):
@@ -34,7 +40,7 @@ def plot_sim(filename):
 sims = {}
 fls = [f for f in os.listdir('.') if re.search('-\d+-\d+-\d+-\d+-\d+.npz', f)]
 for sim in fls:
-    m = re.search('(\d+-\d+-\d+-\d+-\d+)', sim)
+    m = re.search('(\d+-\d+-\d+-\d+-\d+).npz', sim)
     if m.group(1) not in sims:
         sims[m.group(1)] = [sim]
     else:
