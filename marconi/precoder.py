@@ -180,7 +180,7 @@ class PrecoderSDP_MAC(Precoder):
         peff = pic.new_param('U0', np.dot(prec.conj().T, cov))
 
         prob.add_constraint(cpnt + peff*(popt - prec) +
-                            (popt.H - prec.conj().T)*peff.H >> scov)
+                            (popt.H - prec.conj().T)*peff.H == scov)
 
         # Block diagonal structure constraint
         zind = np.kron(np.eye(n_ue), np.ones((n_tx, n_sk)))
@@ -257,10 +257,10 @@ class PrecoderSDP_MAC(Precoder):
         chan = chan.reshape((self.n_rx, self.n_tx*self.n_bs),
                             order='F')
 
-        # Picos is sandbox into separate process to ensure proper memory
+        # Picos is sandboxed into separate process to ensure proper memory
         # management.
         queue = Queue()
-        tol = 1e-6
+        tol = 1e-8
 
         p_sandbox = Process(target=self.solve,
                             args=(chan, prec_prev, weights, pwr_lim, tol,
