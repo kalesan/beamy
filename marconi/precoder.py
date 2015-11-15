@@ -363,7 +363,7 @@ class PrecoderSDP(Precoder):
         reff = pic.new_param('U0', np.dot(recv.conj().T, cov))
 
         prob.add_constraint(cpnt + reff*(ropt - recv) +
-                            (ropt.H - recv.conj().T)*reff.H >> scov)
+                            (ropt.H - recv.conj().T)*reff.H == scov)
 
         # Block diagonal structure constraint
         zind = np.kron(np.eye(n_ue), np.ones((n_rx, n_sk)))
@@ -404,8 +404,8 @@ class PrecoderSDP(Precoder):
 
         if self.lvl is not None:
             # 10%-bounds around the previous point
-            upper_bound = self.lvl*1.1
-            lower_bound = self.lvl*0.9
+            upper_bound = self.lvl*2
+            lower_bound = self.lvl/2
             bounds = np.array([lower_bound, upper_bound])
         else:
             upper_bound = 10.
@@ -420,7 +420,7 @@ class PrecoderSDP(Precoder):
 
         err = np.inf
 
-        while err > self.precision:
+        while (pnew >= self.pwr_lim) or (err > self.precision):
             if method == "bisection":
                 self.lvl = bounds.sum() / 2
 
