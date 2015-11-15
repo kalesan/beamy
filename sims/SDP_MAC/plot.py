@@ -36,6 +36,7 @@ def plot_sim(filename):
     plt.title('$N_{\\mathrm B}=%s, N_{\\mathrm T}=%s, K=%s$ and '
               % (n_tx, n_rx, n_ue) + 'SNR = $%s$dB' % snr)
 
+    print('%s: average number of iterations %d' % (name, data['I']))
 
 sims = {}
 fls = [f for f in os.listdir('.') if re.search('-\d+-\d+-\d+-\d+-\d+.npz', f)]

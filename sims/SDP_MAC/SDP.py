@@ -29,8 +29,8 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 ####
-realizations = 10
-biterations = 150
+realizations = 2
+biterations = None
 
 
 def simulate(_rx, _tx, _K, _B, _SNR):
