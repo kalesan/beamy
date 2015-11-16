@@ -185,11 +185,20 @@ class Simulator(object):
                 rate = self.iterate_beamformers_conv()
 
             print(len(rate))
-            stat_t = pd.DataFrame({'rate': rate, 'iterations': float(len(rate))})
+
+            stat_t = pd.DataFrame({'rate': rate, 
+                        'iterations': float(len(rate))})
 
             if stats is None:
                 stats = stat_t
             else:
+                r1 = stats['rate'].iloc[-1]
+                r2 = stat_t['rate'].iloc[-1]
+
                 stats += stat_t
 
-            np.savez(self.resfile, R=stats['rate']/(rel+1), I=stats['iterations'].iloc[-1]/(rel+1))
+                # Concatenate different lenght rate vectors
+                stats['rate'][stats['rate'].isnull()] = r1 + r2 
+
+            np.savez(self.resfile, R=stats['rate']/(rel+1), 
+                        I=stats['iterations'].iloc[0]/(rel+1))
