@@ -16,7 +16,9 @@ class Precoder(object):
     """ This is the base class for all precoder design. The generator function
     should be overridden to comply with the corresponding design."""
 
-    def __init__(self, sysparams, uplink=False, precision=1e-6):
+    def __init__(self, sysparams, precision=1e-6,
+            solver_tolerance=1e-6):
+
         (self.n_rx, self.n_tx, self.n_ue, self.n_bs) = sysparams
 
         self.n_sk = min(self.n_tx, self.n_rx)
@@ -25,16 +27,7 @@ class Precoder(object):
 
         self.precision = precision
 
-        self.uplink = uplink
-
-        if uplink:
-            n_tx = self.n_tx
-            self.n_tx = self.n_rx
-            self.n_rx = n_tx
-
-            n_ue = self.n_ue
-            self.n_ue = self.n_bs
-            self.n_bs = n_ue
+        self.solver_tolerance = solver_tolerance
 
         # Initialize (reset) precoder state
         self.reset()

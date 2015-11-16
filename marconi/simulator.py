@@ -32,21 +32,19 @@ class Simulator(object):
         self.resfile = kwargs.get('resfile', 'res.npz')
 
         self.pwr_lim = 1
-        self.noise_pwr = 10**-(kwargs.get('SNR', 20)/10)
+        self.noise_pwr = 10**(-kwargs.get('SNR', 20)/10)
 
         self.static_channel = kwargs.get('static_channel', True)
-        self.rate_conv_tol = 1e-6
-
-        self.uplink = kwargs.get('uplink', False)
+        self.rate_conv_tol = kwargs.get('rate_conv_tol', 1e-5)
 
         if prec is None:
             self.prec = precoder.PrecoderGaussian(self.sysparams)
         else:
             self.prec = prec
 
-    def iterate_beamformers_conv(self):
+    def iterate_beamformers_conv(self): 
         """ Iteratively generate the receive and transmit beaformers for the
-        given channel matrix until convergence. """
+            given channel matrix until convergence. """
 
         self.prec.reset()
 
@@ -74,9 +72,8 @@ class Simulator(object):
         while np.abs(rate_prev - rate_cur) > self.rate_conv_tol:
             chan = self.chanmod.generate()
 
-            # For uplink simulations transpose the channel model
-            if self.uplink:
-                chan = chan.transpose(1, 0, 3, 2)
+            if ind == 0:
+                recv = utils.lmmse(chan, prec, self.noise_pwr)
 
             logger.info("Iteration %d", ind)
 
@@ -134,10 +131,6 @@ class Simulator(object):
         for ind in range(0, self.iterations['beamformer']):
 
             chan = self.chanmod.generate()
-
-            # For uplink simulations transpose the channel model
-            if self.uplink:
-                chan = chan.transpose(1, 0, 3, 2)
 
             logger.info("Iteration %d/%d", ind, self.iterations['beamformer'])
 
