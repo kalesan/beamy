@@ -55,12 +55,9 @@ class Simulator(object):
         n_sk = min(n_rx, n_tx)
 
         # Initialize beamformers
-        rprec = precoder.PrecoderGaussian((n_rx, n_tx, n_ue, n_bs))
+        rprec = precoder.PrecoderGaussian((n_rx, n_sk, n_ue, n_bs))
 
-        prec = rprec.generate(pwr_lim=self.pwr_lim)
-
-        recv = np.random.randn(n_rx, n_sk, n_ue, n_bs) + \
-                np.random.randn(n_rx, n_sk, n_ue, n_bs)*1j
+        prec = rprec.generate(pwr_lim=0.5*self.pwr_lim)
 
         rate = []
 

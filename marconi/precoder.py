@@ -172,8 +172,7 @@ class PrecoderSDP_MAC(Precoder):
 
         peff = pic.new_param('U0', np.dot(prec.conj().T, cov))
 
-        prob.add_constraint(cpnt + peff*(popt - prec) +
-                            (popt.H - prec.conj().T)*peff.H == scov)
+        prob.add_constraint(peff*popt + popt.H*peff.H - cpnt == scov)
 
         # Block diagonal structure constraint
         zind = np.kron(np.eye(n_ue), np.ones((n_tx, n_sk)))
@@ -190,8 +189,6 @@ class PrecoderSDP_MAC(Precoder):
         eye_k = pic.new_param('I', np.eye(n_tx))
 
         for _ue in range(n_ue):
-            pcomp = prob.add_variable('Y%i' % _ue, (n_sk, n_sk), 'hermitian')
-
             _r0 = (_ue)*n_tx
             _r1 = (_ue+1)*n_tx
 
@@ -200,11 +197,10 @@ class PrecoderSDP_MAC(Precoder):
 
             X = popt[_r0:_r1, _c0:_c1]
 
-            prob.add_constraint(((pcomp & X.H) // (X & eye_k)) >> 0)
-            prob.add_constraint(('I' | pcomp) <= pwr_lim)
+            prob.add_constraint(abs(X) <= np.sqrt(pwr_lim))
 
         # Solve the problem
-        prob.solve(verbose=0, noduals=True, tol=tol, solve_via_dual=False)
+        prob.solve(verbose=False, noduals=True, tol=tol, solve_via_dual=False)
 
         popt = np.asarray(np.matrix(popt.value))
 
@@ -253,11 +249,11 @@ class PrecoderSDP_MAC(Precoder):
         # Picos is sandboxed into separate process to ensure proper memory
         # management.
         queue = Queue()
-        tol = 1e-8
 
         p_sandbox = Process(target=self.solve,
-                            args=(chan, prec_prev, weights, pwr_lim, tol,
-                                  queue))
+                            args=(chan, prec_prev, weights, pwr_lim,
+                                self.solver_tolerance, queue))
+
         # prec = self.solve(chan, prec_prev, weights, pwr_lim)
         p_sandbox.start()
         p_sandbox.join()
@@ -407,8 +403,6 @@ class PrecoderSDP(Precoder):
 
         pnew = np.Inf
 
-        tol = 1e-4
-
         itr = 1
 
         err = np.inf
@@ -421,7 +415,8 @@ class PrecoderSDP(Precoder):
             # management.
             queue = Queue()
             p_sandbox = Process(target=self.solve,
-                                args=(chan, recv, weights, self.lvl, tol, queue))
+                                args=(chan, recv, weights, self.lvl,
+                                    self.solver_tolerance, queue))
             # ropt = self.solve(chan, recv, weights, self.lvl, tol)
             p_sandbox.start()
             p_sandbox.join()
