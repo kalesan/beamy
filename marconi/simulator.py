@@ -64,18 +64,16 @@ class Simulator(object):
 
         rate = []
 
-        rate_prev = np.inf
-        rate_cur = 0
+        rate_prev = np.Inf
 
         ind = 0
+        err = np.Inf;
 
-        while np.abs(rate_prev - rate_cur) > self.rate_conv_tol:
+        while np.abs(err) > self.rate_conv_tol:
             chan = self.chanmod.generate()
 
             if ind == 0:
                 recv = utils.lmmse(chan, prec, self.noise_pwr)
-
-            logger.info("Iteration %d", ind)
 
             for txrxi in range(0, self.txrxiter):
                 prec = self.prec.generate(chan, recv, prec, self.noise_pwr,
@@ -92,15 +90,14 @@ class Simulator(object):
 
             pwr = np.real(prec[:]*prec[:].conj()).sum()
 
-            logger.info("Rate: %.4f Power: %.2f%% (I: %f) ", rate[-1],
+            logger.info("%d: R: %.4f P: %.2f%% (I: %.5g) ", ind, rate[-1],
                         100*(pwr/(n_bs*self.pwr_lim)), rate[-1] - rate_prev)
 
             ind += 1
 
-            if ind > 1:
-                rate_prev = rate[-2]
-                rate_cur = rate[-1]
+            err = rate[-1] - rate_prev
 
+            rate_prev = rate[-1]
 
         return rate
 
@@ -149,7 +146,7 @@ class Simulator(object):
 
             pwr = np.real(prec[:]*prec[:].conj()).sum()
 
-            logger.info("Rate: %.4f Power: %.2f%% (I: %f) ", rate[-1],
+            logger.info("Rate: %.4f Power: %.2f%% (I: %.5g) ", rate[-1],
                         100*(pwr/(n_bs*self.pwr_lim)), rate[-1] - rate_prev)
 
             # Settle on convergence for static channels
