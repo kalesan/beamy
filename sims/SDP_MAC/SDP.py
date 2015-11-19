@@ -6,7 +6,7 @@ sys.path.append("../../marconi")
 import logging 
 from simulator import Simulator
 
-import precoder
+from precoder import *
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -36,35 +36,35 @@ biterations = None
 def simulate(_rx, _tx, _K, _B, _SNR):
     sparams = (_rx, _tx, _K, _B)
 
-    wmmse_res_file = "WMMSE-MAC-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
+    sdp_res_file = "SDP-MAC-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    sim = Simulator(PrecoderSDP_MAC.PrecoderSDP_MAC(sparams, solver_tolerance=1e-8),
                     sysparams=sparams,
                     realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR, uplink=True)
+                    resfile=sdp_res_file, SNR=_SNR)
+    sim.run()
+
+    wmmse_res_file = "WMMSE-MAC-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    sim = Simulator(PrecoderWMMSE.PrecoderWMMSE(sparams, precision=1e-8),
+                    sysparams=sparams,
+                    realizations=realizations, biterations=biterations,
+                    resfile=wmmse_res_file, SNR=_SNR)
 
     sim.run()
 
     wmmse_res_file = "WMMSE-MAC-5-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
+    sim = Simulator(PrecoderWMMSE.PrecoderWMMSE(sparams, precision=1e-8),
                     sysparams=sparams,
                     realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR, uplink=True, txrxiter=5)
+                    resfile=wmmse_res_file, SNR=_SNR, txrxiter=5)
 
     sim.run()
 
     wmmse_res_file = "WMMSE-MAC-10-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
+    sim = Simulator(PrecoderWMMSE.PrecoderWMMSE(sparams, precision=1e-8),
                     sysparams=sparams,
                     realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR, uplink=True, txrxiter=10)
+                    resfile=wmmse_res_file, SNR=_SNR, txrxiter=10)
 
-    sim.run()
-
-    sdp_res_file = "SDP-MAC-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderSDP_MAC(sparams, uplink=True),
-                    sysparams=sparams,
-                    realizations=realizations, biterations=biterations,
-                    resfile=sdp_res_file, SNR=_SNR, uplink=True)
     sim.run()
 
 

@@ -6,7 +6,7 @@ sys.path.append("../../marconi")
 import logging
 from simulator import Simulator
 
-import precoder
+from precoder import *
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -30,15 +30,15 @@ biterations = 50
 def simulate(_rx, _tx, _K, _B, _SNR):
     sparams = (_rx, _tx, _K, _B)
 
-    wmmse_res_file = "wmmse-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderWMMSE(sparams), sysparams=sparams,
+    wmmse_res_file = "WMMSE-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    sim = Simulator(PrecoderWMMSE.PrecoderWMMSE(sparams), sysparams=sparams,
                     realizations=realizations, biterations=biterations,
                     resfile=wmmse_res_file, SNR=_SNR)
 
     sim.run()
 
-    sdp_res_file = "wmmse-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderSDP(sparams), sysparams=sparams,
+    sdp_res_file = "SDP-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    sim = Simulator(PrecoderSDP.PrecoderSDP(sparams), sysparams=sparams,
                     realizations=realizations, biterations=biterations,
                     resfile=sdp_res_file, SNR=_SNR)
     sim.run()

@@ -11,6 +11,8 @@ import utils
 import chanmod
 import precoder
 
+from precoder import PrecoderGaussian
+
 
 class Simulator(object):
     """ This is the top-level simulator class, which is used to define the
@@ -38,7 +40,7 @@ class Simulator(object):
         self.rate_conv_tol = kwargs.get('rate_conv_tol', 1e-5)
 
         if prec is None:
-            self.prec = precoder.PrecoderGaussian(self.sysparams)
+            self.prec = PrecoderGaussian.PrecoderGaussian(self.sysparams)
         else:
             self.prec = prec
 
@@ -55,7 +57,8 @@ class Simulator(object):
         n_sk = min(n_rx, n_tx)
 
         # Initialize beamformers
-        rprec = precoder.PrecoderGaussian((n_rx, n_sk, n_ue, n_bs))
+
+        rprec = PrecoderGaussian.PrecoderGaussian(self.sysparams)
 
         prec = rprec.generate(pwr_lim=0.5*self.pwr_lim)
 
@@ -114,7 +117,7 @@ class Simulator(object):
         n_sk = min(n_rx, n_tx)
 
         # Initialize beamformers
-        rprec = precoder.PrecoderGaussian((n_rx, n_tx, n_ue, n_bs))
+        rprec = PrecoderGaussian.PrecoderGaussian(self.sysparams)
 
         prec = rprec.generate(pwr_lim=self.pwr_lim)
 
