@@ -129,8 +129,6 @@ class Simulator(object):
 
             chan = self.chanmod.generate()
 
-            logger.info("Iteration %d/%d", ind, self.iterations['beamformer'])
-
             for txrxi in range(0, self.txrxiter):
                 prec = self.prec.generate(chan, recv, prec, self.noise_pwr,
                                         pwr_lim=self.pwr_lim)
@@ -146,7 +144,8 @@ class Simulator(object):
 
             pwr = np.real(prec[:]*prec[:].conj()).sum()
 
-            logger.info("Rate: %.4f Power: %.2f%% (I: %.5g) ", rate[-1],
+            logger.info("%d/%d: R: %.4f P: %.2f%% (I: %.5g) ", ind, 
+                        self.iterations['beamformer'], rate[-1],
                         100*(pwr/(n_bs*self.pwr_lim)), rate[-1] - rate_prev)
 
             # Settle on convergence for static channels
