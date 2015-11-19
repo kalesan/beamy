@@ -60,7 +60,7 @@ class Simulator(object):
 
         rprec = PrecoderGaussian.PrecoderGaussian(self.sysparams)
 
-        prec = rprec.generate(pwr_lim=0.5*self.pwr_lim)
+        prec = rprec.generate(pwr_lim=self.pwr_lim)
 
         rate = []
 
