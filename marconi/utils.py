@@ -174,11 +174,11 @@ def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
             else:
                 bounds[0] = lvl
 
-            if lvl < 1e-9:
+            if lvl < 1e-14:
                 break
 
             # Re-adjust the boundaries if the upper limit seems to low
-            if np.abs(bounds[0] - bounds[1]) < 1e-10:
+            if np.abs(bounds[0] - bounds[1]) < 1e-14:
                 bounds[1] *= 10
 
     return np.reshape(prec, [cfg['TX'], cfg['SK'], cfg['UE'], cfg['BS']],
