@@ -184,8 +184,6 @@ class Simulator(object):
             else:
                 rate = self.iterate_beamformers_conv()
 
-            print(len(rate))
-
             stat_t = pd.DataFrame({'rate': rate, 
                         'iterations': float(len(rate))})
 
