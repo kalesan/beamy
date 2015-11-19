@@ -1,2 +1,2 @@
 __all__ = ['PrecoderGaussian', 'PrecoderSDP', 'PrecoderSDP_MAC',
-           'PrecoderWMMSE']
+           'PrecoderWMMSE', 'PrecoderWMMSE_SDP']

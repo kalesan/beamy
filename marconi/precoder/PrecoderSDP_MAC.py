@@ -18,6 +18,15 @@ class PrecoderSDP_MAC(Precoder):
         based on SDP reformulation and successive linear approximation of the
         original problem. """
 
+    def __init__(self, sysparams, precision=1e-6,
+                          solver_tolerance=1e-6, perantenna_power=False):
+
+        Precoder.__init__(self, sysparams, precision=precision,
+                solver_tolerance=solver_tolerance)
+
+        self.perantenna_power = perantenna_power
+
+
     def blkdiag(self, m_array):
         """ Block diagonalize [N1 N2 Y] as X diagonal N1*Y-by-N2*Y blocks  """
 
@@ -114,16 +123,27 @@ class PrecoderSDP_MAC(Precoder):
         # Transmit power limit
         eye_k = pic.new_param('I', np.eye(n_tx))
 
-        for _ue in range(n_ue):
-            _r0 = (_ue)*n_tx
-            _r1 = (_ue+1)*n_tx
+        if self.perantenna_power:
+            for (t, _ue) in itertools.product(range(n_tx), range(n_ue)):
+                _r0 = (_ue)*n_tx + t
 
-            _c0 = _ue*n_sk
-            _c1 = (_ue+1)*n_sk
+                _c0 = _ue*n_sk
+                _c1 = (_ue+1)*n_sk
 
-            X = popt[_r0:_r1, _c0:_c1]
+                X = popt[_r0, _c0:_c1]
 
-            prob.add_constraint(abs(X) <= np.sqrt(pwr_lim))
+                prob.add_constraint(abs(X) <= np.sqrt(pwr_lim / n_tx))
+        else:
+            for _ue in range(n_ue):
+                _r0 = (_ue)*n_tx
+                _r1 = (_ue+1)*n_tx
+
+                _c0 = _ue*n_sk
+                _c1 = (_ue+1)*n_sk
+
+                X = popt[_r0:_r1, _c0:_c1]
+
+                prob.add_constraint(abs(X) <= np.sqrt(pwr_lim))
 
         # Solve the problem
         prob.solve(verbose=False, noduals=True, tol=tol, solve_via_dual=False)
