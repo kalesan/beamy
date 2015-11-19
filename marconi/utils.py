@@ -151,7 +151,7 @@ def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
 
     # Perform the power bisection for each BS separately
     for _bs in range(cfg['BS']):
-        prec[:, :, _bs] = np.linalg.solve((wcov[:, :, _bs]), wchan[:, :, _bs])
+        prec[:, :, _bs] = np.dot(np.linalg.pinv(wcov[:, :, _bs]), wchan[:, :, _bs])
 
         if np.linalg.norm(prec[:, :, _bs][:]) <= np.sqrt(pwr_lim):
             continue
