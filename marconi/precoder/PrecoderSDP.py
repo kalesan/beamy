@@ -17,6 +17,14 @@ class PrecoderSDP(Precoder):
     """ Joint transceiver beamformer design based on SDP reformulation and
         successive linear approximation of the original problem. """
 
+    def __init__(self, sysparams, precision=1e-6,
+                          solver_tolerance=1e-6, method='bisection'):
+
+        Precoder.__init__(self, sysparams, precision=precision,
+                solver_tolerance=solver_tolerance)
+
+        self.method = method
+
     def reset(self):
         """ Resets the precoder state and parameters. """
         self.lvl = None
@@ -158,6 +166,29 @@ class PrecoderSDP(Precoder):
 
         err = np.inf
 
+        if method == "fixed":
+            v = np.trace(np.dot(np.dot(recv, weights), recv.conj().T))
+
+            # Picos is sandbox into separate process to ensure proper memory
+            # management.
+            queue = Queue()
+            p_sandbox = Process(target=self.solve,
+                                args=(chan, recv, weights, v,
+                                      self.solver_tolerance, queue))
+            #ropt = self.solve(chan, recv, weights, self.lvl,
+            #        self.solver_tolerance)
+            p_sandbox.start()
+            p_sandbox.join()
+            ropt = queue.get()
+
+            v = np.trace(np.dot(np.dot(ropt, weights), recv.conj().T))
+
+            prec = self.precoder(chan, ropt, weights, v)
+
+            ropt /= np.sqrt(np.linalg.norm(prec.flatten()))
+
+            return (self.pwr_lim / np.linalg.norm(prec.flatten())) * prec;
+
         while (pnew >= self.pwr_lim) or (err > self.precision):
             if method == "bisection":
                 self.lvl = bounds.sum() / 2
@@ -235,6 +266,7 @@ class PrecoderSDP(Precoder):
             chan = np.squeeze(np.vstack(chan))
 
             prec[:, :, :, _bs] = self.search(chan, recv[:, :, _bs],
-                                             weights[:, :, _bs])
+                                             weights[:, :, _bs],
+                                             method=self.method)
 
         return prec
