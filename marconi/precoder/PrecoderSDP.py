@@ -150,21 +150,13 @@ class PrecoderSDP(Precoder):
 
         """
 
-        if self.lvl is not None:
-            # 10%-bounds around the previous point
-            upper_bound = self.lvl*2
-            lower_bound = 0
+        upper_bound = 10.
+        lower_bound = 0.
+        bounds = np.array([lower_bound, upper_bound])
 
-            bounds = np.array([lower_bound, upper_bound])
-        else:
-            upper_bound = 10.
-            lower_bound = 0.
-            bounds = np.array([lower_bound, upper_bound])
-
+        last_feasible_prec = None
         pnew = np.Inf
-
         itr = 1
-
         err = np.inf
 
         if method == "fixed":
@@ -211,6 +203,9 @@ class PrecoderSDP(Precoder):
             # Compute power
             pnew = np.linalg.norm(prec[:])**2
 
+            if pnew <= self.pwr_lim:
+                last_feasible_prec = prec
+
             if method == "subgradient":
                 self.lvl = max(1e-10, self.lvl + step/np.sqrt(itr)*(pnew - self.pwr_lim))
             else:
@@ -224,17 +219,20 @@ class PrecoderSDP(Precoder):
             self.logger.debug("%d: lvl: %f P: %f err: %f bnd: %f", itr, self.lvl,
                               pnew, err, np.abs(bounds[0] - bounds[1]))
 
-            if np.abs(bounds[0] - bounds[1]) < 1e-10:
-                if np.abs(upper_bound - bounds[1]) < 1e-9:
+            if np.abs(bounds[0] - bounds[1]) < 1e-14:
+                if np.abs(upper_bound - bounds[1]) < 1e-11:
                     upper_bound *= 10
-                    lower_bound /= 10
                     bounds = np.array([lower_bound, upper_bound])
-                elif np.abs(lower_bound - bounds[0]) < 1e-9:
-                    upper_bound *= 10
+
+                elif np.abs(lower_bound - bounds[0]) < 1e-11:
                     lower_bound /= 10
                     bounds = np.array([lower_bound, upper_bound])
                 else:
                     bounds = np.array([lower_bound, upper_bound])
+
+                # We have run in to some numerical difficulties
+                if itr > 500:
+                    return last_feasible_prec
 
             itr += 1
 
