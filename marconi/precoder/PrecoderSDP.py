@@ -125,7 +125,7 @@ class PrecoderSDP(Precoder):
             [ropt.real[_i, _j] == 0 for (_i, _j) in zind])
 
         # Solve the problem
-        prob.solve(verbose=0, noduals=True, tol=tol, solve_via_dual=False)
+        prob.solve(verbose=False, noduals=True, tol=tol, solve_via_dual=False)
 
         ropt = np.asarray(np.matrix(ropt.value))
 
@@ -153,7 +153,8 @@ class PrecoderSDP(Precoder):
         if self.lvl is not None:
             # 10%-bounds around the previous point
             upper_bound = self.lvl*2
-            lower_bound = self.lvl/2
+            lower_bound = 0
+
             bounds = np.array([lower_bound, upper_bound])
         else:
             upper_bound = 10.
@@ -197,9 +198,10 @@ class PrecoderSDP(Precoder):
             # management.
             queue = Queue()
             p_sandbox = Process(target=self.solve,
-                                args=(chan, recv, weights, self.lvl,
-                                    self.solver_tolerance, queue))
-            # ropt = self.solve(chan, recv, weights, self.lvl, tol)
+                                 args=(chan, recv, weights, self.lvl,
+                                     self.solver_tolerance, queue))
+            #ropt = self.solve(chan, recv, weights, self.lvl,
+            #        self.solver_tolerance)
             p_sandbox.start()
             p_sandbox.join()
             ropt = queue.get()
@@ -219,7 +221,7 @@ class PrecoderSDP(Precoder):
 
             err = np.abs(pnew - self.pwr_lim)
 
-            self.logger.debug("%d: self.lvl: %f P: %f err: %f bnd: %f", itr, self.lvl,
+            self.logger.debug("%d: lvl: %f P: %f err: %f bnd: %f", itr, self.lvl,
                               pnew, err, np.abs(bounds[0] - bounds[1]))
 
             if np.abs(bounds[0] - bounds[1]) < 1e-10:
@@ -232,7 +234,6 @@ class PrecoderSDP(Precoder):
                     lower_bound /= 10
                     bounds = np.array([lower_bound, upper_bound])
                 else:
-                    tol *= 10
                     bounds = np.array([lower_bound, upper_bound])
 
             itr += 1
