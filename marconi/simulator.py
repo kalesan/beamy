@@ -34,7 +34,7 @@ class Simulator(object):
         self.resfile = kwargs.get('resfile', 'res.npz')
 
         self.pwr_lim = 1.
-        self.noise_pwr = 10**(-kwargs.get('SNR', 20)/10)
+        self.noise_pwr = 10**(-float(kwargs.get('SNR', 20))/10)
 
         self.static_channel = kwargs.get('static_channel', True)
         self.rate_conv_tol = kwargs.get('rate_conv_tol', 1e-5)
