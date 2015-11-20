@@ -101,7 +101,7 @@ class PrecoderSDP(Precoder):
 
         # Constraints
         prob.add_constraint(((ncomp & ropt*wsqrt) //
-                             (wsqrt.H*ropt.H & eye_rx)) >> 0)
+                             (wsqrt.H*ropt.H & eye_sk)) >> 0)
 
         prob.add_constraint(((scomp & eye_sk) //
                              (eye_sk & (scov + winv))) >> 0)
