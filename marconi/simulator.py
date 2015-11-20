@@ -90,7 +90,7 @@ class Simulator(object):
 
             pwr = np.real(prec[:]*prec[:].conj()).sum()
 
-            logger.info("%d: R: %.4f P: %.2f%% (I: %.5g) ", ind, rate[-1],
+            logger.info("%d: R: %.4f P: %.2f%% (I: %.5g) ", ind+1, rate[-1],
                         100*(pwr/(n_bs*self.pwr_lim)), rate[-1] - rate_prev)
 
             ind += 1
@@ -144,7 +144,7 @@ class Simulator(object):
 
             pwr = np.real(prec[:]*prec[:].conj()).sum()
 
-            logger.info("%d/%d: R: %.4f P: %.2f%% (I: %.5g) ", ind, 
+            logger.info("%d/%d: R: %.4f P: %.2f%% (I: %.5g) ", ind+1, 
                         self.iterations['beamformer'], rate[-1],
                         100*(pwr/(n_bs*self.pwr_lim)), rate[-1] - rate_prev)
 
