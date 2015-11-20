@@ -174,7 +174,7 @@ def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
             else:
                 bounds[0] = lvl
 
-            if lvl < 1e-14:
+            if lvl < 1e-12:
                 break
 
             # Re-adjust the boundaries if the upper limit seems to low
