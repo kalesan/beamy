@@ -123,8 +123,7 @@ class PrecoderWMMSE_SDP(Precoder):
                         <= pwr_lim)
 
         # Solve the problem
-        prob.solve(solver='cvxopt', verbose=False, noduals=True, tol=tol, 
-                solve_via_dual=False)
+        prob.solve(verbose=False, noduals=True, tol=tol, solve_via_dual=False)
 
         prec = np.zeros((n_tx, n_sk, n_ue, n_bs), dtype='complex')
 
@@ -153,15 +152,15 @@ class PrecoderWMMSE_SDP(Precoder):
 
         # Picos is sandboxed into separate process to ensure proper memory
         # management.
-        # queue = Queue()
+        queue = Queue()
 
-        # p_sandbox = Process(target=self.solve,
-                            # args=(recv, chan, weights, pwr_lim,
-                                # self.solver_tolerance, queue))
+        p_sandbox = Process(target=self.solve,
+                            args=(recv, chan, weights, pwr_lim,
+                                self.solver_tolerance, queue))
 
-        # p_sandbox.start()
-        # p_sandbox.join()
-        # prec = queue.get()
-        prec = self.solve(recv, chan, weights, pwr_lim)
+        p_sandbox.start()
+        p_sandbox.join()
+        prec = queue.get()
+        # prec = self.solve(recv, chan, weights, pwr_lim)
 
         return prec #queue.get()
