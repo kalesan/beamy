@@ -89,7 +89,9 @@ def rate(chan, prec, noise_pwr, cov=None, errm=None):
         beamformers.
     """
 
-    (n_ue, n_bs) = chan.shape[2:]
+    (n_rx, n_tx, n_ue, n_bs) = chan.shape
+
+    n_sk = min(n_rx, n_tx)
 
     # Signal covariance matrix
     if cov is None:
@@ -110,10 +112,16 @@ def rate(chan, prec, noise_pwr, cov=None, errm=None):
     return rates
 
 
-def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
+def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6,
+        nu=None):
     """ Utilize the weighted bisection algorithm to solve the weighted MSE
         minimizing transmit beamformers subject to given per-BS sum power
-        constraint. """
+        constraint. 
+
+        Arguments:
+            threshold (1e-6) denotes the bisection error threshold
+            nu if given is a fixed value for the bisection (no search).
+     """
 
     # System configuration
     cfg = {'TX': chan.shape[1], 'UE': chan.shape[2], 'BS': chan.shape[3],
@@ -151,6 +159,12 @@ def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6):
 
     # Perform the power bisection for each BS separately
     for _bs in range(cfg['BS']):
+        if nu is not None:
+            prec[:, :, _bs] = np.linalg.solve((wcov[:, :, _bs] +
+                                               np.eye(cfg['TX'])*nu),
+                                              wchan[:, :, _bs])
+            continue
+
         prec[:, :, _bs] = np.dot(np.linalg.pinv(wcov[:, :, _bs]), wchan[:, :, _bs])
 
         if np.linalg.norm(prec[:, :, _bs][:]) <= np.sqrt(pwr_lim):

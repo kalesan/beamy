@@ -134,7 +134,7 @@ class PrecoderSDP(Precoder):
         else:
             queue.put(np.squeeze(ropt))
 
-    def search(self, chan, recv, weights, method="bisection", step=0.5):
+    def search(self, chan, recv, weights, pwr_lim, method="bisection", step=0.5):
         """ Perform the primal-dual precoder optimization over the domain of
             dual variables.
 
@@ -159,14 +159,18 @@ class PrecoderSDP(Precoder):
         itr = 1
         err = np.inf
 
+        nu = np.trace(np.dot(np.dot(recv, weights), recv.conj().T))
+        nu = np.real(nu / pwr_lim)
+
         if method == "fixed":
-            v = np.trace(np.dot(np.dot(recv, weights), recv.conj().T))
+            nu = np.trace(np.dot(np.dot(recv, weights), recv.conj().T))
+            nu = np.real(self.noise_pwr * nu / pwr_lim)
 
             # Picos is sandbox into separate process to ensure proper memory
             # management.
             queue = Queue()
             p_sandbox = Process(target=self.solve,
-                                args=(chan, recv, weights, v,
+                                args=(chan, recv, weights, nu,
                                       self.solver_tolerance, queue))
             #ropt = self.solve(chan, recv, weights, self.lvl,
             #        self.solver_tolerance)
@@ -174,13 +178,15 @@ class PrecoderSDP(Precoder):
             p_sandbox.join()
             ropt = queue.get()
 
-            v = np.trace(np.dot(np.dot(ropt, weights), recv.conj().T))
+            nu = np.trace(np.dot(np.dot(ropt, weights), ropt.conj().T))
+            nu = np.real(self.noise_pwr * nu / pwr_lim)
 
-            prec = self.precoder(chan, ropt, weights, v)
+            prec = self.precoder(chan, ropt, weights, nu)
 
-            ropt /= np.sqrt(np.linalg.norm(prec.flatten()))
+            b = np.sqrt(pwr_lim) / np.linalg.norm(prec.flatten())
+            prec *= b;
 
-            return (self.pwr_lim / np.linalg.norm(prec.flatten())) * prec;
+            return prec;
 
         while (pnew >= self.pwr_lim) or (err > self.precision):
             if method == "bisection":
@@ -196,6 +202,7 @@ class PrecoderSDP(Precoder):
             #        self.solver_tolerance)
             p_sandbox.start()
             p_sandbox.join()
+
             ropt = queue.get()
 
             prec = self.precoder(chan, ropt, weights, self.lvl)
@@ -220,6 +227,11 @@ class PrecoderSDP(Precoder):
                               pnew, err, np.abs(bounds[0] - bounds[1]))
 
             if np.abs(bounds[0] - bounds[1]) < 1e-14:
+                # We have run in to some numerical difficulties
+                if (self.lvl >= 1.1*lower_bound) and \
+                        (self.lvl <= 0.9*upper_bound):
+                    return last_feasible_prec
+
                 if np.abs(upper_bound - bounds[1]) < 1e-11:
                     upper_bound *= 10
                     bounds = np.array([lower_bound, upper_bound])
@@ -230,9 +242,6 @@ class PrecoderSDP(Precoder):
                 else:
                     bounds = np.array([lower_bound, upper_bound])
 
-                # We have run in to some numerical difficulties
-                if itr > 500:
-                    return last_feasible_prec
 
             itr += 1
 
@@ -265,7 +274,7 @@ class PrecoderSDP(Precoder):
             chan = np.squeeze(np.vstack(chan))
 
             prec[:, :, :, _bs] = self.search(chan, recv[:, :, _bs],
-                                             weights[:, :, _bs],
+                                             weights[:, :, _bs], pwr_lim,
                                              method=self.method)
 
         return prec

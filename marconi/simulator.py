@@ -34,7 +34,9 @@ class Simulator(object):
         self.resfile = kwargs.get('resfile', 'res.npz')
 
         self.pwr_lim = 1.
+        #self.pwr_lim = 10**(float(kwargs.get('SNR', 20))/10)
         self.noise_pwr = 10**(-float(kwargs.get('SNR', 20))/10)
+        #self.noise_pwr = 1.0
 
         self.static_channel = kwargs.get('static_channel', True)
         self.rate_conv_tol = kwargs.get('rate_conv_tol', 1e-5)
@@ -73,7 +75,7 @@ class Simulator(object):
             chan = self.chanmod.generate()
 
             if ind == 0:
-                recv = utils.lmmse(chan, prec, self.noise_pwr)
+                recv = utils.lmmse(chan, prec, self.noise_pwr, cov=None)
 
             for txrxi in range(0, self.txrxiter):
                 prec = self.prec.generate(chan, recv, prec, self.noise_pwr,
@@ -149,8 +151,7 @@ class Simulator(object):
                         100*(pwr/(n_bs*self.pwr_lim)), rate[-1] - rate_prev)
 
             # Settle on convergence for static channels
-            if self.static_channel and \
-                np.abs(rate_prev - rate[-1]) < self.rate_conv_tol:
+            if np.abs(rate_prev - rate[-1]) < self.rate_conv_tol:
 
                 itr = self.iterations['beamformer'] - ind
                 while (itr > 0):
