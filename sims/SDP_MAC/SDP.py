@@ -30,7 +30,7 @@ logger.addHandler(handler)
 
 ####
 realizations = 2
-biterations = None
+biterations = 10
 
 
 def simulate(_rx, _tx, _K, _B, _SNR):
@@ -43,36 +43,42 @@ def simulate(_rx, _tx, _K, _B, _SNR):
                     resfile=sdp_res_file, SNR=_SNR)
     sim.run()
 
-    wmmse_res_file = "WMMSE-MAC-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(PrecoderWMMSE.PrecoderWMMSE(sparams, precision=1e-8),
-                    sysparams=sparams,
-                    realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR)
+    # wmmse_res_file = "WMMSE-MAC-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    # sim = Simulator(PrecoderWMMSE.PrecoderWMMSE(sparams, precision=1e-8),
+                    # sysparams=sparams,
+                    # realizations=realizations, biterations=biterations,
+                    # resfile=wmmse_res_file, SNR=_SNR)
 
-    sim.run()
+    # sim.run()
 
-    wmmse_res_file = "WMMSE-MAC-5-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(PrecoderWMMSE.PrecoderWMMSE(sparams, precision=1e-8),
-                    sysparams=sparams,
-                    realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR, txrxiter=5)
+    # wmmse_res_file = "WMMSE-MAC-5-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    # sim = Simulator(PrecoderWMMSE.PrecoderWMMSE(sparams, precision=1e-8),
+                    # sysparams=sparams,
+                    # realizations=realizations, biterations=biterations,
+                    # resfile=wmmse_res_file, SNR=_SNR, txrxiter=5)
 
-    sim.run()
+    # sim.run()
 
-    wmmse_res_file = "WMMSE-MAC-10-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(PrecoderWMMSE.PrecoderWMMSE(sparams, precision=1e-8),
-                    sysparams=sparams,
-                    realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR, txrxiter=10)
+    # wmmse_res_file = "WMMSE-MAC-10-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
+    # sim = Simulator(PrecoderWMMSE.PrecoderWMMSE(sparams, precision=1e-8),
+                    # sysparams=sparams,
+                    # realizations=realizations, biterations=biterations,
+                    # resfile=wmmse_res_file, SNR=_SNR, txrxiter=10)
 
-    sim.run()
+    # sim.run()
 
 
 if __name__ == '__main__':
-    SNR = 25
+    SNR = 5
 
     # The simulation cases
-    (rx, tx, K, B) = (4, 4, 2, 1)
+    (rx, tx, K, B) = (4, 2, 1, 2)
+    simulate(rx, tx, K, B, SNR)
+
+    SNR = 10
+
+    # The simulation cases
+    (rx, tx, K, B) = (4, 2, 1, 2)
     simulate(rx, tx, K, B, SNR)
 
     # (rx, tx, K, B) = (2, 4, 4, 1)

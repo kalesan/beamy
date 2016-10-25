@@ -29,9 +29,10 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 ###
-tol = 1e-10
+tol = 1e-12
+rate_conv_tol = 1e-5
 
-realizations = 100
+realizations = 2
 biterations = None
 
 def simulate(_rx, _tx, _K, _B, _SNR):
@@ -54,8 +55,9 @@ def simulate(_rx, _tx, _K, _B, _SNR):
 
 
 if __name__ == '__main__':
-    SNR = 35
-
     # The simulation cases
-    (rx, tx, K, B) = (4, 2, 1, 2)
-    simulate(rx, tx, K, B, SNR)
+    (rx, tx, K, B) = (8, 2, 1, 4)
+
+    # for SNR in [10, 15, 20, 25, 30, 35, 40]:
+    for SNR in [15, 20, 25, 30, 35, 40]:
+        simulate(rx, tx, K, B, SNR)

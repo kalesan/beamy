@@ -12,7 +12,7 @@ def plot_sim(filename, first):
     n_rx = m.group(2)
     n_tx = m.group(3)
     n_ue = m.group(4)
-    # n_bs = m.group(5)
+    n_bs = m.group(5)
     snr = m.group(6)
 
     data = np.load(filename)
@@ -26,7 +26,7 @@ def plot_sim(filename, first):
         print
         print
         print('Tx=%s, Rx=%s, K=%s and '
-                % (n_tx, n_rx, n_ue) + 'SNR = %sdB' % snr)
+                % (n_tx, n_rx, n_bs) + 'SNR = %sdB' % snr)
 
     print
     print('%s: asymptotic performance %f' % (name, data['R'][-1]))
@@ -42,7 +42,7 @@ for sim in fls:
         sims[m.group(1)].append(sim)
 
 i = 0
-for case in sims.keys():
+for case in sorted(sims.keys()):
     first = True 
 
     for sim in sims[case]:

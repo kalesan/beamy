@@ -23,8 +23,8 @@ while len(logger.handlers) > 0:
 logger.addHandler(handler)
 
 ####
-realizations = 25
-biterations = 50
+realizations = 3
+biterations = None
 
 
 def simulate(_rx, _tx, _K, _B, _SNR):

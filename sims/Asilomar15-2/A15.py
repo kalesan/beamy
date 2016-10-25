@@ -52,7 +52,7 @@ def simulate(_rx, _tx, _K, _B, _SNR, biter):
         if not np.any(done_cases == np.array([case])):
             sdp_res_file = "SDP-F-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
             sim = Simulator(PrecoderSDP.PrecoderSDP(sparams, 
-                            solver_tolerance=1e-8, precision=precision, 
+                            solver_tolerance=1e-12, precision=precision, 
                             method='fixed'),
                             sysparams=sparams,
                             realizations=realizations, biterations=biter,
@@ -125,7 +125,7 @@ def simulate(_rx, _tx, _K, _B, _SNR, biter):
         if not np.any(done_cases == np.array([case])):
             sdp_res_file = "SDP-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
             sim = Simulator(PrecoderSDP.PrecoderSDP(sparams, 
-                            solver_tolerance=1e-8, precision=precision, 
+                            solver_tolerance=1e-12, precision=precision, 
                             method='bisection'),
                             sysparams=sparams,
                             realizations=realizations, biterations=biter,
@@ -145,7 +145,7 @@ def simulate(_rx, _tx, _K, _B, _SNR, biter):
         if not np.any(done_cases == np.array([case])):
             sdp_res_file = "SDP-nIter-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
             sim = Simulator(PrecoderSDP.PrecoderSDP(sparams,
-                            solver_tolerance=1e-8, precision=precision),
+                            solver_tolerance=1e-12, precision=precision),
                             sysparams=sparams,
                             realizations=realizations, biterations=None,
                             resfile=sdp_res_file, SNR=_SNR)
@@ -203,9 +203,9 @@ if __name__ == '__main__':
     # allargs += [(rx, tx, K, B, SNR, None) for SNR in SNR_Range]
     allargs += [(rx, tx, K, B, SNR, biterations) for SNR in SNR_Range]
 
-    (rx, tx, K, B) = (2, 10, 5, 1)
+    # (rx, tx, K, B) = (2, 10, 5, 1)
     # allargs += [(rx, tx, K, B, SNR, None) for SNR in SNR_Range]
-    allargs += [(rx, tx, K, B, SNR, biterations) for SNR in SNR_Range]
+    # allargs += [(rx, tx, K, B, SNR, biterations) for SNR in SNR_Range]
 
     # (rx, tx, K, B) = (9, 3, 3, 1)
     # allargs += [(rx, tx, K, B, SNR, None) for SNR in SNR_Range]
