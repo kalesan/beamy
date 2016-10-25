@@ -112,7 +112,7 @@ def rate(chan, prec, noise_pwr, cov=None, errm=None):
     return rates
 
 
-def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6,
+def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-10,
         nu=None):
     """ Utilize the weighted bisection algorithm to solve the weighted MSE
         minimizing transmit beamformers subject to given per-BS sum power
@@ -188,7 +188,7 @@ def weighted_bisection(chan, recv, weights, pwr_lim, threshold=1e-6,
             else:
                 bounds[0] = lvl
 
-            if lvl < 1e-12:
+            if lvl < 1e-14:
                 break
 
             # Re-adjust the boundaries if the upper limit seems to low
