@@ -1,10 +1,8 @@
 import pytest
 import numpy as np
 
-import sys
-sys.path.append('./marconi')
 
-import utils  # noqa: E402
+from marconi import utils  # noqa: E402
 
 RANDOM_REALIZATIONS = 5
 
