@@ -3,7 +3,7 @@ import logging
 
 # from multiprocessing import Process
 
-sys.path.append("../../marconi")
+sys.path.append("../../beamy")
 
 from simulator import Simulator  # noqa: E402
 

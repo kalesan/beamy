@@ -1,6 +1,6 @@
 import logging
 import sys
-sys.path.append("../../marconi")
+sys.path.append("../../beamy")
 
 # from multiprocessing import Process
 
