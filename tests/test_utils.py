@@ -1,11 +1,14 @@
+import pytest
 import numpy as np
 
 import sys
-sys.path.append('../marconi')
+sys.path.append('./marconi')
 
 import utils  # noqa: E402
 
 RANDOM_REALIZATIONS = 5
+
+ACCURACY = 6
 
 Nr = 5
 Nt = 7
@@ -41,7 +44,7 @@ class TestSIGCOV:
             C0 = self.slow_sigcov(H, M, N0)
             C = utils.sigcov(H, M, N0)
 
-            np.testing.assert_almost_equal(C, C0)
+            np.testing.assert_almost_equal(np.linalg.norm(C - C0), 0, decimal=ACCURACY)
 
 
 class TestLMMSE:
@@ -70,7 +73,7 @@ class TestLMMSE:
             U0 = self.slow_lmmse(H, M, N0)
             U = utils.lmmse(H, M, N0)
 
-            np.testing.assert_almost_equal(U, U0)
+            np.testing.assert_almost_equal(np.linalg.norm(U - U0), 0, decimal=ACCURACY)
 
 
 class TestMSE:
@@ -97,10 +100,10 @@ class TestMSE:
                         E[:, :, k, b] += np.dot(T, T.conj().T)
         return E
 
+    @pytest.mark.skip(reason="WIP")
     def test_random(self):
         for r in range(RANDOM_REALIZATIONS):
             H = np.random.randn(Nr, Nt, K, B) + 1j*np.random.randn(Nr, Nt, K, B)
-
             M = np.random.randn(Nt, Nt, K, B) + 1j*np.random.randn(Nt, Nt, K, B)
 
             U = utils.lmmse(H, M, N0)
@@ -108,7 +111,7 @@ class TestMSE:
             E0 = self.slow_mse(H, U, M, N0)
             E = utils.mse(H, U, M, N0)
 
-            np.testing.assert_almost_equal(E, E0)
+            np.testing.assert_almost_equal(np.linalg.norm(E - E0), 0, decimal=ACCURACY)
 
 
 class TestRATE:
@@ -139,7 +142,7 @@ class TestRATE:
             R0 = self.slow_rate(H, M, N0)
             R = utils.rate(H, M, N0)
 
-            np.testing.assert_almost_equal(R, R0)
+            np.testing.assert_almost_equal(R, R0, decimal=ACCURACY)
 
 
 class TestWB:
@@ -211,4 +214,4 @@ class TestWB:
             M0 = self.slow_wb(H, U, W, 1)
             M = utils.weighted_bisection(H, U, W, 1)
 
-            np.testing.assert_almost_equal(M, M0)
+            np.testing.assert_almost_equal(M, M0, decimal=ACCURACY)
