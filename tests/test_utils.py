@@ -1,8 +1,7 @@
 import pytest
 import numpy as np
 
-
-from marconi import utils  # noqa: E402
+from marconi import utils  
 
 RANDOM_REALIZATIONS = 5
 
