@@ -1,12 +1,13 @@
 import sys
-sys.path.append("../../marconi")
+import logging
 
 # from multiprocessing import Process
 
-import logging
-from simulator import Simulator
+sys.path.append("../../marconi")
 
-import precoder
+from simulator import Simulator  # noqa: E402
+
+import precoder  # noqa: E402
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)

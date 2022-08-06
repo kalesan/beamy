@@ -118,7 +118,7 @@ class Simulator(object):
 
             for txrxi in range(0, self.txrxiter):
                 iprec = self.prec.generate(chan, irecv, iprec, self.noise_pwr,
-                                        pwr_lim=self.pwr_lim)
+                                           pwr_lim=self.pwr_lim)
 
                 cov = utils.sigcov(chan, iprec, self.noise_pwr)
 
@@ -150,8 +150,8 @@ class Simulator(object):
                     iprec = np.array([iprec for _x in range(itr)])
                     irecv = np.array([irecv for _x in range(itr)])
 
-                    prec[:, :, :, :, ind:] = iprec.transpose(1,2,3,4,0)
-                    recv[:, :, :, :, ind:] = irecv.transpose(1,2,3,4,0)
+                    prec[:, :, :, :, ind:] = iprec.transpose(1, 2, 3, 4, 0)
+                    recv[:, :, :, :, ind:] = irecv.transpose(1, 2, 3, 4, 0)
                 else:
                     prec[:, :, :, :, ind:] = np.tile(iprec, (itr))
                     recv[:, :, :, :, ind:] = np.tile(irecv, (itr))

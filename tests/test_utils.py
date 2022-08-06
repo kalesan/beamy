@@ -1,9 +1,9 @@
+import numpy as np
+
 import sys
 sys.path.append('../marconi')
 
-import numpy as np
-
-import utils
+import utils  # noqa: E402
 
 RANDOM_REALIZATIONS = 5
 
