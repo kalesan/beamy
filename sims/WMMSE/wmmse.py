@@ -39,12 +39,6 @@ def simulate(_rx, _tx, _K, _B, _SNR):
 
     sim.run()
 
-    sdp_res_file = "wmmse-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderSDP(sparams), sysparams=sparams,
-                    realizations=realizations, biterations=biterations,
-                    resfile=sdp_res_file, SNR=_SNR)
-    sim.run()
-
 
 if __name__ == '__main__':
     # The simulation cases
