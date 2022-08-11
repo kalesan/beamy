@@ -1,11 +1,13 @@
 import logging
+import os
 import sys
-sys.path.append("../../beamy")
 
 # from multiprocessing import Process
+scriptdir = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(scriptdir, '..', '..'))
+sys.path.append(os.path.join(scriptdir, '..', '..', 'beamy'))
 
-from simulator import Simulator  # noqa: E402
-
+from beamy.simulator import Simulator  # noqa: E402
 import precoder  # noqa: E402
 
 logger = logging.getLogger()
