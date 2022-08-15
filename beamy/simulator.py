@@ -17,6 +17,21 @@ class Simulator(object):
     simulation environments and run the simulations. """
 
     def __init__(self, prec, **kwargs):
+        """
+        prec (Precoder): Precoding model
+
+        Keywoard Args:
+            sysparams (tupple): number of (Rx, Tx, UE, BS) (Default: (2, 4, 10, 1))
+            channel_model (ChannelModel): Channel model (Default: ClarkesModel)
+            realizations (int): Number of channel realizations (Default: 20)
+            biterations (int): Maximum number of beamformer iterations (Default: 50)
+            txrxiter (int): Number of TX/RX iterations per beamformer iteration (Default: 1)
+            seed (int): Random number generator seed (Default: 1841)
+            resfile (str): Result file path (Default: res.npz)
+            SNR (float): Signal-to-noise ratio (in dB) (Default: 20)
+            static_channel (bool): Does the channel remaing static duration beamformer iteration (default: True)
+            uplink (bool): Simulate uplink (default: False)
+        """
         self.sysparams = kwargs.get('sysparams', (2, 4, 10, 1))
 
         self.chanmod = kwargs.get('channel_model',
