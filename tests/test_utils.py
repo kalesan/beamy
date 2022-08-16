@@ -43,6 +43,13 @@ class TestSIGCOV:
 
             np.testing.assert_almost_equal(np.linalg.norm(C - C0), 0, decimal=ACCURACY)
 
+    def test_sigcov_benchmark(self, benchmark):
+        H = np.random.randn(Nr, Nt, K, B) + 1j*np.random.randn(Nr, Nt, K, B)
+
+        M = np.random.randn(Nt, Nt, K, B) + 1j*np.random.randn(Nt, Nt, K, B)
+
+        benchmark(utils.sigcov, H, M, N0)
+
 
 class TestLMMSE:
     def slow_lmmse(self, H, M, N0):
@@ -71,6 +78,13 @@ class TestLMMSE:
             U = utils.lmmse(H, M, N0)
 
             np.testing.assert_almost_equal(np.linalg.norm(U - U0), 0, decimal=ACCURACY)
+
+    def test_lmmse_benchmark(self, benchmark):
+        H = np.random.randn(Nr, Nt, K, B) + 1j*np.random.randn(Nr, Nt, K, B)
+
+        M = np.random.randn(Nt, Nt, K, B) + 1j*np.random.randn(Nt, Nt, K, B)
+
+        benchmark(utils.lmmse, H, M, N0)
 
 
 class TestMSE:
@@ -110,6 +124,14 @@ class TestMSE:
 
             np.testing.assert_almost_equal(np.linalg.norm(E - E0), 0, decimal=ACCURACY)
 
+    def test_mse_benchmark(self, benchmark):
+        H = np.random.randn(Nr, Nt, K, B) + 1j*np.random.randn(Nr, Nt, K, B)
+        M = np.random.randn(Nt, Nt, K, B) + 1j*np.random.randn(Nt, Nt, K, B)
+
+        U = utils.lmmse(H, M, N0)
+
+        benchmark(utils.mse, H, U, M, N0)
+
 
 class TestRATE:
     def slow_rate(self, H, M, N0):
@@ -140,6 +162,12 @@ class TestRATE:
             R = utils.rate(H, M, N0)
 
             np.testing.assert_almost_equal(R, R0, decimal=ACCURACY)
+
+    def test_rate_benchmark(self, benchmark):
+        H = np.random.randn(Nr, Nt, K, B) + 1j*np.random.randn(Nr, Nt, K, B)
+        M = np.random.randn(Nt, Nt, K, B) + 1j*np.random.randn(Nt, Nt, K, B)
+
+        benchmark(utils.rate, H, M, N0)
 
 
 class TestWB:
@@ -212,3 +240,21 @@ class TestWB:
             M = utils.weighted_bisection(H, U, W, 1)
 
             np.testing.assert_almost_equal(M, M0, decimal=ACCURACY)
+
+    def test_wb_benchmark(self, benchmark):
+        Nsk = min(Nr, Nt)
+
+        H = np.random.randn(Nr, Nt, K, B) + 1j*np.random.randn(Nr, Nt, K, B)
+
+        M = np.random.randn(Nt, Nsk, K, B) + \
+            1j*np.random.randn(Nt, Nsk, K, B)
+
+        U = utils.lmmse(H, M, N0)
+
+        W = np.zeros((Nsk, Nsk, K, B))
+        for k in range(K):
+            for b in range(B):
+                W[:, :, k, b] = np.random.rand(Nsk, Nsk)
+                W[:, :, k, b] = np.dot(W[:, :, k, b].T, W[:, :, k, b])
+
+        benchmark(utils.weighted_bisection, H, U, W, 1)
