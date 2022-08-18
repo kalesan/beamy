@@ -40,8 +40,8 @@ class GaussianModel(object):
         """ Generate a Gaussian channel with given system parameters """
         (Nrx, Ntx, K, B) = self.sysparams
 
-        chan = np.random.randn(Nrx, Ntx, K, B, iterations) + \
-            np.random.randn(Nrx, Ntx, K, B, iterations)*1j
+        chan = np.random.randn(Nrx, Ntx, K, B, 1) + \
+               np.random.randn(Nrx, Ntx, K, B, 1)*1j
 
         return (1/np.sqrt(2)) * chan
 
