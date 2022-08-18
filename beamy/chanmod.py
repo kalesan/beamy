@@ -32,7 +32,7 @@ class ChannelModel(object):
         self.gains = np.ones((rx*tx*K*B, 1))
 
 
-class GaussianModel(object):
+class GaussianModel(ChannelModel):
     """ This class defines a Gaussian channel generator. """
 
     # pylint: disable=R0201
