@@ -18,7 +18,8 @@ class Simulator(object):
 
     def __init__(self, prec, **kwargs):
         """
-        prec (Precoder): Precoding model
+        Arguments:
+            prec (Precoder): Precoding model
 
         Keywoard Args:
             sysparams (tupple): number of (Rx, Tx, UE, BS) (Default: (2, 4, 10, 1))

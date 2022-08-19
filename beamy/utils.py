@@ -82,11 +82,23 @@ def mse(chan, recv, prec, noise_pwr, cov=None):
     return errm
 
 
-def rate(chan, prec, noise_pwr, cov=None, errm=None):
+def rate(chan, prec, noise_pwr, cov=None, errm=None, rate_type="average-per-cell"):
     """ Compute the user/BS pair specific rates.
 
-        The rate is computed via the corresponding MSE assuming LMMSE receive
-        beamformers.
+    The rate is computed via the corresponding MSE assuming LMMSE receive
+    beamformers.
+
+    Arguments:
+        chan (matrix): Channel matrix
+        prec (matrix): Precoder matrix
+        noise_pwr (scalar): Noise power
+
+    Keywoard Args:
+        cov (matrix): Pre-calculated covariance matrix
+        errm (matrix): Pre-calculated MSE matrix 
+
+    Returns (array):
+        User specific rates
     """
 
     (n_ue, n_bs) = chan.shape[2:]
