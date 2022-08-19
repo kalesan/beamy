@@ -9,7 +9,7 @@ import pandas as pd
 
 from beamy import chanmod
 from beamy import utils
-from beamy import simulator
+from beamy import precoder
 
 
 class Simulator(object):
