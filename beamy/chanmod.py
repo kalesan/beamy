@@ -35,6 +35,9 @@ class ChannelModel(object):
 class GaussianModel(ChannelModel):
     """ This class defines a Gaussian channel generator. """
 
+    def __init__(self, sysparams, **kwargs):
+        super(GaussianModel, self).__init__(sysparams, **kwargs)
+
     # pylint: disable=R0201
     def generate(self, iterations=1):
         """ Generate a Gaussian channel with given system parameters """
