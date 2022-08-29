@@ -194,6 +194,11 @@ class Simulator(object):
 
         return {'precoder': prec, 'receiver': recv}
 
+    def write_csv(self, rate, mse):
+        df = pd.DataFrame(data={'Rate': rate, 'MSE': mse})
+        df.index.name = 'Iteration'
+        df.to_csv('iteration.csv')
+
     def run(self):
         """ Run the simulator setup. """
 
@@ -225,3 +230,6 @@ class Simulator(object):
 
             np.savez(self.resfile, R=stats['rate']/(rel+1),
                      E=stats['mse']/(rel+1))
+
+        self.write_csv(stats['rate']/self.iterations['channel'], 
+                       stats['mse']/self.iterations['channel'])
