@@ -9,7 +9,7 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-import utils
+from beamy import *
 
 
 class Precoder(object):

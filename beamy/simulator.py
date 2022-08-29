@@ -7,9 +7,9 @@ import logging
 import numpy as np
 import pandas as pd
 
-import utils
-import chanmod
-import precoder
+from beamy import chanmod
+from beamy import utils
+from beamy import precoder
 
 
 class Simulator(object):
@@ -18,7 +18,8 @@ class Simulator(object):
 
     def __init__(self, prec, **kwargs):
         """
-        prec (Precoder): Precoding model
+        Arguments:
+            prec (Precoder): Precoding model
 
         Keywoard Args:
             sysparams (tupple): number of (Rx, Tx, UE, BS) (Default: (2, 4, 10, 1))
@@ -31,6 +32,8 @@ class Simulator(object):
             SNR (float): Signal-to-noise ratio (in dB) (Default: 20)
             static_channel (bool): Does the channel remaing static duration beamformer iteration (default: True)
             uplink (bool): Simulate uplink (default: False)
+            rate_type (str): How to present achievable rate (default: "average-per-cell"). Supported types
+                             "average-per-cell", "average-per-user", "sum-rate"
         """
         self.sysparams = kwargs.get('sysparams', (2, 4, 10, 1))
 
@@ -53,6 +56,8 @@ class Simulator(object):
         self.rate_conv_tol = 1e-6
 
         self.uplink = kwargs.get('uplink', False)
+
+        self.rate_type = kwargs.get('rate_type', "average-per-cell")
 
         if prec is None:
             self.prec = precoder.PrecoderGaussian(self.sysparams)
@@ -89,7 +94,16 @@ class Simulator(object):
                 mse[ind] += np.real(errm_tmp[:, :, tmp_ind].diagonal().sum())
 
             rate[ind] = (utils.rate(chan, prec[:, :, :, :, ind], self.noise_pwr,
-                                    errm=errm)[:]).sum() / chan.shape[3]
+                                    errm=errm)[:]).sum()
+
+            if self.rate_type == "average-per-cell":
+                rate[ind] /= chan.shape[3]
+            elif self.rate_type == "average-per-user":
+                rate[ind] /= chan.shape[2]
+            elif self.rate_type == "sum-rate":
+                pass
+            else:
+                print("Unsupported rate type. Defaultin to sum-rate")
 
         return pd.DataFrame({'rate': rate, 'mse': mse})
 
