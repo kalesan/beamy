@@ -6,6 +6,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+from datetime import datetime
 
 from beamy import chanmod
 from beamy import utils
@@ -49,8 +50,10 @@ class Simulator(object):
 
         self.resfile = kwargs.get('resfile', 'res.npz')
 
+        self.SNR = kwargs.get('SNR', 20)
+
         self.pwr_lim = 1
-        self.noise_pwr = 10**-(kwargs.get('SNR', 20)/10)
+        self.noise_pwr = 10**-(self.SNR/10)
 
         self.static_channel = kwargs.get('static_channel', True)
         self.rate_conv_tol = 1e-6
@@ -63,6 +66,9 @@ class Simulator(object):
             self.prec = precoder.PrecoderGaussian(self.sysparams)
         else:
             self.prec = prec
+
+        self.write_info_csv()
+        
 
     def iteration_stats(self, chan_full, recv, prec):
         """ Collect iteration statistics from the given precoders and receivers.
@@ -106,6 +112,7 @@ class Simulator(object):
                 print("Unsupported rate type. Defaultin to sum-rate")
 
         return pd.DataFrame({'rate': rate, 'mse': mse})
+
 
     def iterate_beamformers(self, chan_full):
         """ Iteratively generate the receive and transmit beaformers for the
@@ -193,6 +200,21 @@ class Simulator(object):
             rate_prev = rate[ind]
 
         return {'precoder': prec, 'receiver': recv}
+
+    def write_info_csv(self):
+        df = pd.DataFrame(data={
+            'time': datetime.now().strftime('%c'),
+            'B': self.sysparams[0],
+            'K': self.sysparams[1],
+            'Nr': self.sysparams[2],
+            'Nt': self.sysparams[3],
+            'realizations': self.iterations['channel'],
+            'brealizations': self.iterations['beamformer'],
+            'SNR': self.SNR,
+            'uplink': self.uplink,
+            'static_channel': self.static_channel
+        }, index=[0])
+        df.to_csv('info.csv')
 
     def write_csv(self, rate, mse):
         df = pd.DataFrame(data={'Rate': rate, 'MSE': mse})
