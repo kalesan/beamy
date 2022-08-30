@@ -20,11 +20,18 @@ class PythonServer(SimpleHTTPRequestHandler):
 
             if path[-1] == 'iteration':
                 path = os.path.join('./sims', './'+path[0], 'iteration.csv')
-                print("Serve", path)
                 with open(path) as f:
                     self.send_response(200, "OK")
                     self.end_headers()
                     self.wfile.write(bytes(f.read(), 'utf-8'))
+            elif path[-1] == 'info':
+                path = os.path.join('./sims', './'+path[0], 'info.csv')
+                with open(path) as f:
+                    self.send_response(200, "OK")
+                    self.end_headers()
+                    self.wfile.write(bytes(f.read(), 'utf-8'))
+            else:
+                self.send_response_only(400, "Not found")
 
 if __name__ == "__main__":
     server = HTTPServer((HOST_NAME, PORT), PythonServer)
