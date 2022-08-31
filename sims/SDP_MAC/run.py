@@ -36,31 +36,29 @@ biterations = 150
 
 
 def simulate(_rx, _tx, _K, _B, _SNR):
-    sparams = (_rx, _tx, _K, _B)
-
-    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
-                    sysparams=sparams,
+    sim = Simulator(precoder.PrecoderWMMSE(precision=1e-8),
+                    bs=_B, users=K, nr=_rx, nt=_tx,
                     realizations=realizations, biterations=biterations, 
                     SNR=_SNR, uplink=True)
 
     sim.run()
 
-    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
-                    sysparams=sparams,
+    sim = Simulator(precoder.PrecoderWMMSE(precision=1e-8),
+                    bs=_B, users=K, nr=_rx, nt=_tx,
                     realizations=realizations, biterations=biterations, 
                     SNR=_SNR, uplink=True, txrxiter=5)
 
     sim.run()
 
-    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
-                    sysparams=sparams,
+    sim = Simulator(precoder.PrecoderWMMSE(precision=1e-8),
+                    bs=_B, users=K, nr=_rx, nt=_tx,
                     realizations=realizations, biterations=biterations, 
                     SNR=_SNR, uplink=True, txrxiter=10)
 
     sim.run()
 
-    sim = Simulator(precoder.PrecoderSDP_MAC(sparams, uplink=True),
-                    sysparams=sparams,
+    sim = Simulator(precoder.PrecoderSDP_MAC(),
+                    bs=_B, users=K, nr=_rx, nt=_tx,
                     realizations=realizations, biterations=biterations,
                     SNR=_SNR, uplink=True)
     sim.run()

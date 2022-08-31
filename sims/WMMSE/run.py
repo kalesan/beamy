@@ -30,10 +30,10 @@ biterations = 50
 
 
 def simulate(_rx, _tx, _K, _B, _SNR):
-    sparams = (_rx, _tx, _K, _B)
-
-    sim = Simulator(precoder.PrecoderWMMSE(), sysparams=sparams,
-                    realizations=realizations, biterations=biterations, SNR=_SNR)
+    sim = Simulator(precoder.PrecoderWMMSE(), 
+                    bs=_B, users=_K, nr=_rx, nt=_tx,
+                    realizations=realizations, biterations=biterations, 
+                    SNR=_SNR)
 
     sim.run()
 

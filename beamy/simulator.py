@@ -23,7 +23,10 @@ class Simulator(object):
             prec (Precoder): Precoding model
 
         Keywoard Args:
-            sysparams (tupple): number of (Rx, Tx, UE, BS) (Default: (2, 4, 10, 1))
+            bs (int): Number of base stations (cells) (Default: 1)
+            users (int): Number of users (Default: 10)
+            nr (int): Number of receive anntennas (Default: 4)
+            nt (int): Number of receive anntennas (Default: 4)
             name: (str): Simulation name (Default: Simulation A) 
             channel_model (ChannelModel): Channel model (Default: ClarkesModel)
             realizations (int): Number of channel realizations (Default: 20)
@@ -36,7 +39,12 @@ class Simulator(object):
             rate_type (str): How to present achievable rate (default: "average-per-cell"). Supported types
                              "average-per-cell", "average-per-user", "sum-rate"
         """
-        self.sysparams = kwargs.get('sysparams', (2, 4, 10, 1))
+        self.Nr = kwargs.get('rx', 2)
+        self.Nt = kwargs.get('tx', 4)
+        self.B = kwargs.get('bs', 1)
+        self.K = kwargs.get('users', 10)
+
+        self.sysparams = (self.Nr, self.Nt, self.K, self.B)
 
         self.name = kwargs.get('name', "Simulation A")
 
@@ -206,10 +214,7 @@ class Simulator(object):
     def write_info_csv(self):
         df = pd.DataFrame(data={
             'time': datetime.now().strftime('%c'),
-            'B': self.sysparams[0],
-            'K': self.sysparams[1],
-            'Nr': self.sysparams[2],
-            'Nt': self.sysparams[3],
+            'B': self.B, 'K': self.K, 'Nr': self.nr, 'Nt': self.nt,
             'realizations': self.iterations['channel'],
             'brealizations': self.iterations['beamformer'],
             'SNR': self.SNR,
@@ -241,6 +246,13 @@ class Simulator(object):
         np.random.seed(self.seed)
 
         stats = None
+
+        B = self.B
+        K = self.K
+        Nr = self.Nr
+        Nt = self.Nt
+
+        SNR = self.SNR
 
         for rel in range(self.iterations['channel']):
             logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
