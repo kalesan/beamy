@@ -63,7 +63,7 @@ class Simulator(object):
         self.rate_type = kwargs.get('rate_type', "average-per-cell")
 
         if prec is None:
-            self.prec = precoder.PrecoderGaussian(self.sysparams)
+            self.prec = precoder.PrecoderGaussian()
         else:
             self.prec = prec
 
@@ -133,7 +133,8 @@ class Simulator(object):
                         dtype='complex')
 
         # Initialize beamformers
-        rprec = precoder.PrecoderGaussian((n_rx, n_tx, n_ue, n_bs))
+        rprec = precoder.PrecoderGaussian()
+        rprec.init((n_rx, n_tx, n_ue, n_bs))
 
         prec[:, :, :, :, 0] = rprec.generate(pwr_lim=self.pwr_lim)
 
@@ -223,6 +224,7 @@ class Simulator(object):
 
     def run(self):
         """ Run the simulator setup. """
+        self.prec.init(self.sysparams, self.uplink)
 
         logger = logging.getLogger(__name__)
 
