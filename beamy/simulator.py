@@ -24,12 +24,12 @@ class Simulator(object):
 
         Keywoard Args:
             sysparams (tupple): number of (Rx, Tx, UE, BS) (Default: (2, 4, 10, 1))
+            name: (str): Simulation name (Default: Simulation A) 
             channel_model (ChannelModel): Channel model (Default: ClarkesModel)
             realizations (int): Number of channel realizations (Default: 20)
             biterations (int): Maximum number of beamformer iterations (Default: 50)
             txrxiter (int): Number of TX/RX iterations per beamformer iteration (Default: 1)
             seed (int): Random number generator seed (Default: 1841)
-            resfile (str): Result file path (Default: res.npz)
             SNR (float): Signal-to-noise ratio (in dB) (Default: 20)
             static_channel (bool): Does the channel remaing static duration beamformer iteration (default: True)
             uplink (bool): Simulate uplink (default: False)
@@ -37,6 +37,8 @@ class Simulator(object):
                              "average-per-cell", "average-per-user", "sum-rate"
         """
         self.sysparams = kwargs.get('sysparams', (2, 4, 10, 1))
+
+        self.name = kwargs.get('name', "Simulation A")
 
         self.chanmod = kwargs.get('channel_model',
                                   chanmod.ClarkesModel(self.sysparams))
@@ -47,8 +49,6 @@ class Simulator(object):
         self.txrxiter = kwargs.get('txrxiter', 1)
 
         self.seed = kwargs.get('seed', 1841)
-
-        self.resfile = kwargs.get('resfile', 'res.npz')
 
         self.SNR = kwargs.get('SNR', 20)
 
@@ -218,7 +218,7 @@ class Simulator(object):
         df.to_csv('info.csv')
 
     def write_csv(self, rate, mse):
-        df = pd.DataFrame(data={'Rate': rate, 'MSE': mse})
+        df = pd.DataFrame(data={'Rate': rate, 'MSE': mse, 'Name': self.name})
         df.index.name = 'Iteration'
         df.to_csv('iteration.csv')
 
@@ -251,9 +251,6 @@ class Simulator(object):
                 stats = stat_t
             else:
                 stats += stat_t
-
-            np.savez(self.resfile, R=stats['rate']/(rel+1),
-                     E=stats['mse']/(rel+1))
 
         self.write_csv(stats['rate']/self.iterations['channel'], 
                        stats['mse']/self.iterations['channel'])
