@@ -36,37 +36,31 @@ biterations = 150
 
 
 def simulate(_rx, _tx, _K, _B, _SNR):
-    sparams = (_rx, _tx, _K, _B)
-
-    wmmse_res_file = "WMMSE-MAC-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
-                    sysparams=sparams,
-                    realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR, uplink=True)
+    sim = Simulator(precoder.PrecoderWMMSE(precision=1e-8),
+                    bs=_B, users=K, nr=_rx, nt=_tx,
+                    realizations=realizations, biterations=biterations, 
+                    SNR=_SNR, uplink=True)
 
     sim.run()
 
-    wmmse_res_file = "WMMSE-MAC-5-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
-                    sysparams=sparams,
-                    realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR, uplink=True, txrxiter=5)
+    sim = Simulator(precoder.PrecoderWMMSE(precision=1e-8),
+                    bs=_B, users=K, nr=_rx, nt=_tx,
+                    realizations=realizations, biterations=biterations, 
+                    SNR=_SNR, uplink=True, txrxiter=5)
 
     sim.run()
 
-    wmmse_res_file = "WMMSE-MAC-10-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderWMMSE(sparams, uplink=True, precision=1e-8),
-                    sysparams=sparams,
-                    realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR, uplink=True, txrxiter=10)
+    sim = Simulator(precoder.PrecoderWMMSE(precision=1e-8),
+                    bs=_B, users=K, nr=_rx, nt=_tx,
+                    realizations=realizations, biterations=biterations, 
+                    SNR=_SNR, uplink=True, txrxiter=10)
 
     sim.run()
 
-    sdp_res_file = "SDP-MAC-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderSDP_MAC(sparams, uplink=True),
-                    sysparams=sparams,
+    sim = Simulator(precoder.PrecoderSDP_MAC(),
+                    bs=_B, users=K, nr=_rx, nt=_tx,
                     realizations=realizations, biterations=biterations,
-                    resfile=sdp_res_file, SNR=_SNR, uplink=True)
+                    SNR=_SNR, uplink=True)
     sim.run()
 
 

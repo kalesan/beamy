@@ -23,20 +23,30 @@ class Simulator(object):
             prec (Precoder): Precoding model
 
         Keywoard Args:
-            sysparams (tupple): number of (Rx, Tx, UE, BS) (Default: (2, 4, 10, 1))
+            bs (int): Number of base stations (cells) (Default: 1)
+            users (int): Number of users (Default: 10)
+            nr (int): Number of receive anntennas (Default: 4)
+            nt (int): Number of receive anntennas (Default: 4)
+            name: (str): Simulation name (Default: Simulation A) 
             channel_model (ChannelModel): Channel model (Default: ClarkesModel)
             realizations (int): Number of channel realizations (Default: 20)
             biterations (int): Maximum number of beamformer iterations (Default: 50)
             txrxiter (int): Number of TX/RX iterations per beamformer iteration (Default: 1)
             seed (int): Random number generator seed (Default: 1841)
-            resfile (str): Result file path (Default: res.npz)
             SNR (float): Signal-to-noise ratio (in dB) (Default: 20)
             static_channel (bool): Does the channel remaing static duration beamformer iteration (default: True)
             uplink (bool): Simulate uplink (default: False)
             rate_type (str): How to present achievable rate (default: "average-per-cell"). Supported types
                              "average-per-cell", "average-per-user", "sum-rate"
         """
-        self.sysparams = kwargs.get('sysparams', (2, 4, 10, 1))
+        self.Nr = kwargs.get('rx', 2)
+        self.Nt = kwargs.get('tx', 4)
+        self.B = kwargs.get('bs', 1)
+        self.K = kwargs.get('users', 10)
+
+        self.sysparams = (self.Nr, self.Nt, self.K, self.B)
+
+        self.name = kwargs.get('name', "Simulation A")
 
         self.chanmod = kwargs.get('channel_model',
                                   chanmod.ClarkesModel(self.sysparams))
@@ -47,8 +57,6 @@ class Simulator(object):
         self.txrxiter = kwargs.get('txrxiter', 1)
 
         self.seed = kwargs.get('seed', 1841)
-
-        self.resfile = kwargs.get('resfile', 'res.npz')
 
         self.SNR = kwargs.get('SNR', 20)
 
@@ -63,7 +71,7 @@ class Simulator(object):
         self.rate_type = kwargs.get('rate_type', "average-per-cell")
 
         if prec is None:
-            self.prec = precoder.PrecoderGaussian(self.sysparams)
+            self.prec = precoder.PrecoderGaussian()
         else:
             self.prec = prec
 
@@ -133,7 +141,8 @@ class Simulator(object):
                         dtype='complex')
 
         # Initialize beamformers
-        rprec = precoder.PrecoderGaussian((n_rx, n_tx, n_ue, n_bs))
+        rprec = precoder.PrecoderGaussian()
+        rprec.init((n_rx, n_tx, n_ue, n_bs))
 
         prec[:, :, :, :, 0] = rprec.generate(pwr_lim=self.pwr_lim)
 
@@ -201,13 +210,11 @@ class Simulator(object):
 
         return {'precoder': prec, 'receiver': recv}
 
+
     def write_info_csv(self):
         df = pd.DataFrame(data={
             'time': datetime.now().strftime('%c'),
-            'B': self.sysparams[0],
-            'K': self.sysparams[1],
-            'Nr': self.sysparams[2],
-            'Nt': self.sysparams[3],
+            'B': self.B, 'K': self.K, 'Nr': self.nr, 'Nt': self.nt,
             'realizations': self.iterations['channel'],
             'brealizations': self.iterations['beamformer'],
             'SNR': self.SNR,
@@ -216,20 +223,36 @@ class Simulator(object):
         }, index=[0])
         df.to_csv('info.csv')
 
-    def write_csv(self, rate, mse):
-        df = pd.DataFrame(data={'Rate': rate, 'MSE': mse})
+
+    def write_iteration_csv(self, rate, mse):
+        df = pd.DataFrame(data={'Rate': rate, 'MSE': mse, 'Name': self.name})
         df.index.name = 'Iteration'
         df.to_csv('iteration.csv')
 
+
+    def write_result_csv(self, res):
+        res.to_csv('result.csv')
+
+
     def run(self):
         """ Run the simulator setup. """
+        self.prec.init(self.sysparams, self.uplink)
 
         logger = logging.getLogger(__name__)
+
+        res = pd.DataFrame({})
 
         # Initialize the random number generator
         np.random.seed(self.seed)
 
         stats = None
+
+        B = self.B
+        K = self.K
+        Nr = self.Nr
+        Nt = self.Nt
+
+        SNR = self.SNR
 
         for rel in range(self.iterations['channel']):
             logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
@@ -250,8 +273,19 @@ class Simulator(object):
             else:
                 stats += stat_t
 
-            np.savez(self.resfile, R=stats['rate']/(rel+1),
-                     E=stats['mse']/(rel+1))
+            iter_res = pd.DataFrame(data={
+                    'B': B, 'K': K, 'Nr': Nr, 'Nt': Nt, 'SNR': SNR,
+                    'Rate': stats['rate'], 'MSE': stats['mse']
+                }, index=[0])
 
-        self.write_csv(stats['rate']/self.iterations['channel'], 
-                       stats['mse']/self.iterations['channel'])
+            if res.empty:
+                res = iter_res
+            else:
+                res += iter_res
+
+        res /= self.iterations['channel']
+
+        self.write_result_csv(res)
+
+        self.write_iteration_csv(stats['rate'] / self.iterations['channel'], 
+                                 stats['mse'] / self.iterations['channel'])
