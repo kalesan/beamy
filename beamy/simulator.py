@@ -273,11 +273,19 @@ class Simulator(object):
             else:
                 stats += stat_t
 
-            iter_res = pd
+            iter_res = pd.DataFrame(data={
+                    'B': B, 'K': K, 'Nr': Nr, 'Nt': Nt, 'SNR': SNR,
+                    'Rate': stats['rate'], 'MSE': stats['mse']
+                }, index=[0])
 
-            res += iter_res
+            if res.empty:
+                res = iter_res
+            else:
+                res += iter_res
 
         res /= self.iterations['channel']
+
+        self.write_result_csv(res)
 
         self.write_iteration_csv(stats['rate'] / self.iterations['channel'], 
                                  stats['mse'] / self.iterations['channel'])
