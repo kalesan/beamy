@@ -214,7 +214,7 @@ class Simulator(object):
     def write_info_csv(self):
         df = pd.DataFrame(data={
             'time': datetime.now().strftime('%c'),
-            'B': self.B, 'K': self.K, 'Nr': self.nr, 'Nt': self.nt,
+            'B': self.B, 'K': self.K, 'Nr': self.Nr, 'Nt': self.Nt,
             'realizations': self.iterations['channel'],
             'brealizations': self.iterations['beamformer'],
             'SNR': self.SNR,
