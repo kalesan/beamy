@@ -8,11 +8,8 @@ import scipy.constants
 class ChannelModel(object):
     """Docstring for ChannelModel. """
 
-    def __init__(self, sysparams, **kwargs):
+    def __init__(self, **kwargs):
         """@todo: to be defined1.
-
-        Args:
-            sysparams (@todo): @todo
 
         Kwargs:
             gain_model (str): Channel gain model. Supported models are "CellSep"
@@ -21,30 +18,21 @@ class ChannelModel(object):
 
         """
 
-        self.sysparams = sysparams
         self.gain_model = kwargs.get('gain_model', 'CellSep')
         self.cellsep = kwargs.get('cellsep', 3)
-
-        (rx, tx, K, B) = self.sysparams
-
-        # Channel gains
-        # @todo: Actual channel gain modelling
-        self.gains = np.ones((rx*tx*K*B, 1))
 
 
 class GaussianModel(ChannelModel):
     """ This class defines a Gaussian channel generator. """
 
-    def __init__(self, sysparams, **kwargs):
-        super(GaussianModel, self).__init__(sysparams, **kwargs)
+    def __init__(self, **kwargs):
+        super(GaussianModel, self).__init__(**kwargs)
 
     # pylint: disable=R0201
-    def generate(self, iterations=1):
+    def generate(self, Nr, Nt, K, B, iterations=1):
         """ Generate a Gaussian channel with given system parameters """
-        (Nrx, Ntx, K, B) = self.sysparams
-
-        chan = np.random.randn(Nrx, Ntx, K, B, iterations) + \
-            np.random.randn(Nrx, Ntx, K, B, iterations)*1j
+        chan = np.random.randn(Nr, Nt, K, B, iterations) + \
+            np.random.randn(Nr, Nt, K, B, iterations)*1j
 
         return (1/np.sqrt(2)) * chan
 
@@ -52,7 +40,7 @@ class GaussianModel(ChannelModel):
 class ClarkesModel(ChannelModel):
     """Docstring for ClarkesModel. """
 
-    def __init__(self, sysparams, **kwargs):
+    def __init__(self, **kwargs):
         """ Constructor for Clarke's channel model. All of the parameters are
         optional up to the defaults.
 
@@ -65,7 +53,7 @@ class ClarkesModel(ChannelModel):
         Returns: @todo
 
         """
-        super(ClarkesModel, self).__init__(sysparams, **kwargs)
+        super(ClarkesModel, self).__init__(**kwargs)
 
         speed_kmh = kwargs.get('speed_kmh', 0)
         freq_sym_Hz = kwargs.get('freq_sym_Hz', 20e3)
@@ -85,11 +73,14 @@ class ClarkesModel(ChannelModel):
         # Angular Doppler frequencies
         self.phii = 2*np.pi * self.fd * np.cos(self.alpha)
 
-    def generate(self, iterations=1):
+    def generate(self, Nr, Nt, K, B, iterations=1):
         """ Generate time-correlated Rayleigh fading channels.
 
         Args:
-            sysparams (tuple): System parameters (RX, TX, K, B).
+            Nr (int): Number of receive anntennas
+            Nt (int): Number of receive anntennas
+            K (int): Number of users
+            B (int): Number of base stations (cells)
 
         Kwargs:
             iterations (int): Number of beamformer iterations.
@@ -98,14 +89,15 @@ class ClarkesModel(ChannelModel):
 
         """
 
-        (nrx, ntx, K, B) = self.sysparams
-
         # Timing vector
         tv = np.r_[0:iterations] * self.ts
         tv = tv.reshape(iterations, 1)
 
         # Subpath complex phase evolution (N x nsamples)
         theta_t = np.dot(self.phii, tv.T)
+
+        # Channel gains
+        self.gains = np.ones((Nr * Nt * K * B, 1))
 
         paths = np.zeros((len(self.gains), iterations), dtype='complex')
 
@@ -117,4 +109,4 @@ class ClarkesModel(ChannelModel):
             paths[pth, :] = np.sqrt(self.gains[pth] / self.npath) * \
                 np.sum(np.exp(1j*theta), 0)
 
-        return paths.reshape(nrx, ntx, K, B, iterations, order='F')
+        return paths.reshape(Nr, Nt, K, B, iterations, order='F')

@@ -39,17 +39,15 @@ class Simulator(object):
             rate_type (str): How to present achievable rate (default: "average-per-cell"). Supported types
                              "average-per-cell", "average-per-user", "sum-rate"
         """
-        self.Nr = kwargs.get('rx', 2)
-        self.Nt = kwargs.get('tx', 4)
+        self.Nr = kwargs.get('nr', 2)
+        self.Nt = kwargs.get('nt', 4)
         self.B = kwargs.get('bs', 1)
         self.K = kwargs.get('users', 10)
-
-        self.sysparams = (self.Nr, self.Nt, self.K, self.B)
 
         self.name = kwargs.get('name', "Simulation A")
 
         self.chanmod = kwargs.get('channel_model',
-                                  chanmod.ClarkesModel(self.sysparams))
+                                  chanmod.ClarkesModel())
 
         self.iterations = {'channel': kwargs.get('realizations', 20),
                            'beamformer': kwargs.get('biterations', 50)}
@@ -142,7 +140,7 @@ class Simulator(object):
 
         # Initialize beamformers
         rprec = precoder.PrecoderGaussian()
-        rprec.init((n_rx, n_tx, n_ue, n_bs))
+        rprec.init(n_rx, n_tx, n_ue, n_bs)
 
         prec[:, :, :, :, 0] = rprec.generate(pwr_lim=self.pwr_lim)
 
@@ -198,8 +196,8 @@ class Simulator(object):
                     prec[:, :, :, :, ind:] = iprec.transpose(1, 2, 3, 4, 0)
                     recv[:, :, :, :, ind:] = irecv.transpose(1, 2, 3, 4, 0)
                 else:
-                    prec[:, :, :, :, ind:] = np.tile(iprec, (itr))
-                    recv[:, :, :, :, ind:] = np.tile(irecv, (itr))
+                    prec[:, :, :, :, ind:] = np.repeat(iprec[:, :, :, :, np.newaxis], itr, axis=4)
+                    recv[:, :, :, :, ind:] = np.repeat(irecv[:, :, :, :, np.newaxis], itr, axis=4)
 
                 break
 
@@ -236,8 +234,6 @@ class Simulator(object):
 
     def run(self):
         """ Run the simulator setup. """
-        self.prec.init(self.sysparams, self.uplink)
-
         logger = logging.getLogger(__name__)
 
         res = pd.DataFrame({})
@@ -254,10 +250,12 @@ class Simulator(object):
 
         SNR = self.SNR
 
+        self.prec.init(Nr, Nt, K, B, self.uplink)
+
         for rel in range(self.iterations['channel']):
             logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
 
-            chan = self.chanmod.generate(self.iterations['beamformer'])
+            chan = self.chanmod.generate(Nr, Nt, K, B, self.iterations['beamformer'])
 
             # For uplink simulations transpose the channel model
             if self.uplink:

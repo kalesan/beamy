@@ -21,8 +21,8 @@ class Precoder(object):
 
         self.precision = precision
 
-    def init(self, sysparams, uplink=False):
-        (self.n_rx, self.n_tx, self.n_ue, self.n_bs) = sysparams
+    def init(self, Nr, Nt, K, B, uplink=False):
+        (self.n_rx, self.n_tx, self.n_ue, self.n_bs) = (Nr, Nt, K, B)
 
         self.n_sk = min(self.n_tx, self.n_rx)
 
