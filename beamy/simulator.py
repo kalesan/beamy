@@ -202,6 +202,7 @@ class Simulator(object):
 
         return {'precoder': prec, 'receiver': recv}
 
+
     def write_info_csv(self):
         df = pd.DataFrame(data={
             'time': datetime.now().strftime('%c'),
@@ -217,16 +218,24 @@ class Simulator(object):
         }, index=[0])
         df.to_csv('info.csv')
 
-    def write_csv(self, rate, mse):
+
+    def write_iteration_csv(self, rate, mse):
         df = pd.DataFrame(data={'Rate': rate, 'MSE': mse, 'Name': self.name})
         df.index.name = 'Iteration'
         df.to_csv('iteration.csv')
+
+
+    def write_result_csv(self, res):
+        res.to_csv('result.csv')
+
 
     def run(self):
         """ Run the simulator setup. """
         self.prec.init(self.sysparams, self.uplink)
 
         logger = logging.getLogger(__name__)
+
+        res = pd.DataFrame({})
 
         # Initialize the random number generator
         np.random.seed(self.seed)
@@ -252,5 +261,11 @@ class Simulator(object):
             else:
                 stats += stat_t
 
-        self.write_csv(stats['rate']/self.iterations['channel'], 
-                       stats['mse']/self.iterations['channel'])
+            iter_res = pd
+
+            res += iter_res
+
+        res /= self.iterations['channel']
+
+        self.write_iteration_csv(stats['rate'] / self.iterations['channel'], 
+                                 stats['mse'] / self.iterations['channel'])
