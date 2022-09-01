@@ -16,14 +16,15 @@ class Precoder(object):
     """ This is the base class for all precoder design. The generator function
     should be overridden to comply with the corresponding design."""
 
-    def __init__(self, sysparams, uplink=False, precision=1e-6):
-        (self.n_rx, self.n_tx, self.n_ue, self.n_bs) = sysparams
-
-        self.n_sk = min(self.n_tx, self.n_rx)
-
+    def __init__(self, precision=1e-6):
         self.logger = logging.getLogger(__name__)
 
         self.precision = precision
+
+    def init(self, Nr, Nt, K, B, uplink=False):
+        (self.n_rx, self.n_tx, self.n_ue, self.n_bs) = (Nr, Nt, K, B)
+
+        self.n_sk = min(self.n_tx, self.n_rx)
 
         self.uplink = uplink
 
@@ -63,6 +64,9 @@ class PrecoderGaussian(Precoder):
         precoder matrices that are normalized according to the given power
         constraints."""
 
+    def __init__(self, **kwargs):
+        super(PrecoderGaussian, self).__init__(**kwargs)
+
     def generate(self, *_args, **kwargs):
         """ Generate a Gaussian precoder"""
 
@@ -74,6 +78,9 @@ class PrecoderGaussian(Precoder):
 
 class PrecoderWMMSE(Precoder):
     """Weighted minimum MSE (WMMSE) precoder design."""
+
+    def __init__(self, **kwargs):
+        super(PrecoderWMMSE, self).__init__(**kwargs)
 
     def generate(self, *args, **kwargs):
         """ Generate the WMMSE precoders. """
@@ -98,6 +105,9 @@ class PrecoderSDP_MAC(Precoder):
     """ Joint transceiver beamformer design for multiple access channel (MAC)
         based on SDP reformulation and successive linear approximation of the
         original problem. """
+
+    def __init__(self, **kwargs):
+        super(PrecoderSDP_MAC, self).__init__(**kwargs)
 
     def blkdiag(self, m_array):
         """ Block diagonalize [N1 N2 Y] as X diagonal N1*Y-by-N2*Y blocks  """
@@ -276,6 +286,9 @@ class PrecoderSDP_MAC(Precoder):
 class PrecoderSDP(Precoder):
     """ Joint transceiver beamformer design based on SDP reformulation and
         successive linear approximation of the original problem. """
+
+    def __init__(self, **kwargs):
+        super(PrecoderSDP, self).__init__(**kwargs)
 
     def reset(self):
         """ Resets the precoder state and parameters. """

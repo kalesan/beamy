@@ -30,12 +30,10 @@ biterations = 50
 
 
 def simulate(_rx, _tx, _K, _B, _SNR):
-    sparams = (_rx, _tx, _K, _B)
-
-    wmmse_res_file = "wmmse-%d-%d-%d-%d-%d.npz" % (_rx, _tx, _K, _B, _SNR)
-    sim = Simulator(precoder.PrecoderWMMSE(sparams), sysparams=sparams,
-                    realizations=realizations, biterations=biterations,
-                    resfile=wmmse_res_file, SNR=_SNR)
+    sim = Simulator(precoder.PrecoderWMMSE(), 
+                    bs=_B, users=_K, nr=_rx, nt=_tx,
+                    realizations=realizations, biterations=biterations, 
+                    SNR=_SNR)
 
     sim.run()
 
@@ -47,6 +45,6 @@ if __name__ == '__main__':
     tx = 4
     rx = 2
 
-    SNR = 20
+    SNR = [20, 25]
 
     simulate(rx, tx, K, B, SNR)
