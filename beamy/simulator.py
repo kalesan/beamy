@@ -7,6 +7,7 @@ import logging
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import itertools
 
 from beamy import chanmod
 from beamy import utils
@@ -16,6 +17,7 @@ from beamy import precoder
 class Simulator(object):
     """ This is the top-level simulator class, which is used to define the
     simulation environments and run the simulations. """
+
 
     def __init__(self, prec, **kwargs):
         """
@@ -39,10 +41,21 @@ class Simulator(object):
             rate_type (str): How to present achievable rate (default: "average-per-cell"). Supported types
                              "average-per-cell", "average-per-user", "sum-rate"
         """
-        self.Nr = kwargs.get('nr', 2)
-        self.Nt = kwargs.get('nt', 4)
-        self.B = kwargs.get('bs', 1)
-        self.K = kwargs.get('users', 10)
+        self.Nr = kwargs.get('nr', [2])
+        if np.isscalar(self.Nr):
+            self.Nr = [self.Nr]
+
+        self.Nt = kwargs.get('nt', [4])
+        if np.isscalar(self.Nt):
+            self.Nt = [self.Nt]
+
+        self.B = kwargs.get('bs', [1])
+        if np.isscalar(self.B):
+            self.B = [self.B]
+
+        self.K = kwargs.get('users', [10])
+        if np.isscalar(self.K):
+            self.K = [self.K]
 
         self.name = kwargs.get('name', "Simulation A")
 
@@ -56,10 +69,9 @@ class Simulator(object):
 
         self.seed = kwargs.get('seed', 1841)
 
-        self.SNR = kwargs.get('SNR', 20)
-
-        self.pwr_lim = 1
-        self.noise_pwr = 10**-(self.SNR/10)
+        self.SNR = kwargs.get('SNR', [20])
+        if np.isscalar(self.SNR):
+            self.SNR = [self.SNR]
 
         self.static_channel = kwargs.get('static_channel', True)
         self.rate_conv_tol = 1e-6
@@ -67,6 +79,8 @@ class Simulator(object):
         self.uplink = kwargs.get('uplink', False)
 
         self.rate_type = kwargs.get('rate_type', "average-per-cell")
+
+        self.pwr_lim = 1
 
         if prec is None:
             self.prec = precoder.PrecoderGaussian()
@@ -76,7 +90,7 @@ class Simulator(object):
         self.write_info_csv()
         
 
-    def iteration_stats(self, chan_full, recv, prec):
+    def iteration_stats(self, SNR, chan_full, recv, prec):
         """ Collect iteration statistics from the given precoders and receivers.
 
         Args:
@@ -88,16 +102,18 @@ class Simulator(object):
 
         """
 
+        noise_pwr = 10**-(SNR/10)
+
         rate = np.zeros((self.iterations['beamformer']))
         mse = np.zeros((self.iterations['beamformer']))
 
         for ind in range(0, self.iterations['beamformer']):
             chan = chan_full[:, :, :, :, ind]
 
-            cov = utils.sigcov(chan, prec[:, :, :, :, ind], self.noise_pwr)
+            cov = utils.sigcov(chan, prec[:, :, :, :, ind], noise_pwr)
 
             errm = utils.mse(chan, recv[:, :, :, :, ind], prec[:, :, :, :, ind],
-                             self.noise_pwr, cov=cov)
+                             noise_pwr, cov=cov)
 
             errm_tmp = errm.reshape((errm.shape[0], errm.shape[1],
                                      errm.shape[2]*errm.shape[3]), order='F')
@@ -105,7 +121,7 @@ class Simulator(object):
             for tmp_ind in range(errm_tmp.shape[2]):
                 mse[ind] += np.real(errm_tmp[:, :, tmp_ind].diagonal().sum())
 
-            rate[ind] = (utils.rate(chan, prec[:, :, :, :, ind], self.noise_pwr,
+            rate[ind] = (utils.rate(chan, prec[:, :, :, :, ind], noise_pwr,
                                     errm=errm)[:]).sum()
 
             if self.rate_type == "average-per-cell":
@@ -120,9 +136,11 @@ class Simulator(object):
         return pd.DataFrame({'rate': rate, 'mse': mse})
 
 
-    def iterate_beamformers(self, chan_full):
+    def iterate_beamformers(self, SNR, chan_full):
         """ Iteratively generate the receive and transmit beaformers for the
         given channel matrix. """
+
+        noise_pwr = 10**-(SNR/10)
 
         self.prec.reset()
 
@@ -145,7 +163,7 @@ class Simulator(object):
         prec[:, :, :, :, 0] = rprec.generate(pwr_lim=self.pwr_lim)
 
         recv[:, :, :, :, 0] = utils.lmmse(chan_full[:, :, :, :, 0],
-                                          prec[:, :, :, :, 0], self.noise_pwr)
+                                          prec[:, :, :, :, 0], noise_pwr)
 
         rate = np.zeros((self.iterations['beamformer']))
 
@@ -160,16 +178,16 @@ class Simulator(object):
             logger.info("Iteration %d/%d", ind, self.iterations['beamformer'])
 
             for txrxi in range(0, self.txrxiter):
-                iprec = self.prec.generate(chan, irecv, iprec, self.noise_pwr,
+                iprec = self.prec.generate(chan, irecv, iprec, noise_pwr,
                                            pwr_lim=self.pwr_lim)
 
-                cov = utils.sigcov(chan, iprec, self.noise_pwr)
+                cov = utils.sigcov(chan, iprec, noise_pwr)
 
-                irecv = utils.lmmse(chan, iprec, self.noise_pwr, cov=cov)
+                irecv = utils.lmmse(chan, iprec, noise_pwr, cov=cov)
 
-            errm = utils.mse(chan, irecv, iprec, self.noise_pwr, cov=cov)
+            errm = utils.mse(chan, irecv, iprec, noise_pwr, cov=cov)
 
-            rate[ind] = (utils.rate(chan, iprec, self.noise_pwr,
+            rate[ind] = (utils.rate(chan, iprec, noise_pwr,
                                     errm=errm)[:]).sum() / n_bs
 
             pwr = np.real(iprec[:]*iprec[:].conj()).sum()
@@ -212,78 +230,89 @@ class Simulator(object):
     def write_info_csv(self):
         df = pd.DataFrame(data={
             'time': datetime.now().strftime('%c'),
-            'B': self.B, 'K': self.K, 'Nr': self.Nr, 'Nt': self.Nt,
             'realizations': self.iterations['channel'],
             'brealizations': self.iterations['beamformer'],
-            'SNR': self.SNR,
             'uplink': self.uplink,
             'static_channel': self.static_channel
         }, index=[0])
-        df.to_csv('info.csv')
+        df.to_csv('info.csv', mode='a')
 
 
-    def write_iteration_csv(self, rate, mse):
-        df = pd.DataFrame(data={'Rate': rate, 'MSE': mse, 'Name': self.name})
+    def write_iteration_csv(self, SNR, Nr, Nt, UE, BS, rate, mse, first_result=False):
+        df = pd.DataFrame(data={'SNR': SNR, 'Nr': Nr, 'Nt': Nt, 'UE': UE, 'BS': BS, 
+                                'Rate': rate, 'MSE': mse, 'Name': self.name})
         df.index.name = 'Iteration'
-        df.to_csv('iteration.csv')
+
+        if first_result:
+            df.to_csv('iteration.csv')
+        else:
+            df.to_csv('iteration.csv', mode='a', header=False)
 
 
-    def write_result_csv(self, res):
-        res.to_csv('result.csv')
+    def write_result_csv(self, res, first_result=False):
+        if first_result:
+            res.to_csv('result.csv')
+        else:
+            res.to_csv('result.csv', mode='a', header=False)
 
 
     def run(self):
         """ Run the simulator setup. """
         logger = logging.getLogger(__name__)
 
-        res = pd.DataFrame({})
+        simparams = [self.SNR, self.Nr, self.Nt, self.K, self.B]
+        print(simparams)
 
-        # Initialize the random number generator
-        np.random.seed(self.seed)
+        first_result = True
 
-        stats = None
+        for (SNR, Nr, Nt, K, B) in itertools.product(*simparams):
+            print(SNR)
 
-        B = self.B
-        K = self.K
-        Nr = self.Nr
-        Nt = self.Nt
+            self.prec.init(Nr, Nt, K, B, self.uplink)
 
-        SNR = self.SNR
+            stats = None
 
-        self.prec.init(Nr, Nt, K, B, self.uplink)
+            res = pd.DataFrame({})
 
-        for rel in range(self.iterations['channel']):
-            logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
+            # Initialize the random number generator
+            np.random.seed(self.seed)
 
-            chan = self.chanmod.generate(Nr, Nt, K, B, self.iterations['beamformer'])
+            for rel in range(self.iterations['channel']):
+                logger.info("Realization %d/%d", rel+1, self.iterations['channel'])
 
-            # For uplink simulations transpose the channel model
-            if self.uplink:
-                chan = chan.transpose(1, 0, 3, 2, 4)
+                chan = self.chanmod.generate(Nr, Nt, K, B, self.iterations['beamformer'])
 
-            beamformers = self.iterate_beamformers(chan)
+                # For uplink simulations transpose the channel model
+                if self.uplink:
+                    chan = chan.transpose(1, 0, 3, 2, 4)
 
-            stat_t = self.iteration_stats(chan, beamformers['receiver'],
-                                          beamformers['precoder'])
+                beamformers = self.iterate_beamformers(SNR, chan)
 
-            if stats is None:
-                stats = stat_t
-            else:
-                stats += stat_t
+                stat_t = self.iteration_stats(SNR, chan, beamformers['receiver'],
+                                            beamformers['precoder'])
 
-            iter_res = pd.DataFrame(data={
-                    'B': B, 'K': K, 'Nr': Nr, 'Nt': Nt, 'SNR': SNR,
-                    'Rate': stats['rate'], 'MSE': stats['mse']
-                }, index=[0])
+                if stats is None:
+                    stats = stat_t
+                else:
+                    stats += stat_t
 
-            if res.empty:
-                res = iter_res
-            else:
-                res += iter_res
+                iter_res = pd.DataFrame(data={
+                        'B': B, 'K': K, 'Nr': Nr, 'Nt': Nt, 'SNR': SNR,
+                        'Rate': stats['rate'], 'MSE': stats['mse']
+                    }, index=[0])
 
-        res /= self.iterations['channel']
+                if res.empty:
+                    res = iter_res
+                else:
+                    res += iter_res
 
-        self.write_result_csv(res)
+            res /= self.iterations['channel']
 
-        self.write_iteration_csv(stats['rate'] / self.iterations['channel'], 
-                                 stats['mse'] / self.iterations['channel'])
+            self.write_result_csv(res, first_result=first_result)
+
+            self.write_iteration_csv(SNR, Nr, Nt, K, B, 
+                                    stats['rate'] / self.iterations['channel'], 
+                                    stats['mse'] / self.iterations['channel'],
+                                    first_result=first_result)
+
+            first_result = False
