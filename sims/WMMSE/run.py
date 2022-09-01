@@ -45,6 +45,6 @@ if __name__ == '__main__':
     tx = 4
     rx = 2
 
-    SNR = 20
+    SNR = [20, 25]
 
     simulate(rx, tx, K, B, SNR)
