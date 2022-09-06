@@ -1,0 +1,19 @@
+version: '3.2'
+
+services:
+  beamy-frontend:
+    image: beamy-frontend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - ${PORT:-3000}:3000
+    user: ${UID:-1000}
+    #volumes:
+    #  - ./data:/var/lib/grafana 
+
+  beamy-simulation-server:
+    image: beamy-simulation-server
+    ports:
+      - 8008:8008
+    volumes:
+      - ${SIMS_PATH:-../sims}:/sims

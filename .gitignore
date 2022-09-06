@@ -13,3 +13,6 @@
 # Misc
 .ropeproject
 __pycache__
+
+# Simulation results
+sims/**/*.csv

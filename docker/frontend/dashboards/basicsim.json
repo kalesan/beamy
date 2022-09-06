@@ -1,0 +1,773 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": "Backend",
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^time$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend", 
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "path": "/$sim/info",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "",
+              "type": "string"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "Simulation date",
+      "type": "stat"
+    },
+    {
+      "datasource": "Backend", 
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 4,
+        "y": 0
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^realizations$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend",
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "experimental": {
+            "regex": false
+          },
+          "header": true,
+          "ignoreUnknown": false,
+          "path": "/$sim/info",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Time",
+              "type": "string"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "Channel realizations",
+      "type": "stat"
+    },
+    {
+      "datasource": "Backend",
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 7,
+        "y": 0
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^brealizations$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend", 
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "experimental": {
+            "regex": false
+          },
+          "header": true,
+          "ignoreUnknown": false,
+          "path": "/$sim/info",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Time",
+              "type": "string"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "Beamformer iterations",
+      "type": "stat"
+    },
+    {
+      "datasource": "Backend", 
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "id": 16,
+      "options": {
+        "content": "# BS: ${BS} UE: ${UE} Nr: ${Nr} Nt: ${Nt} SNR: ${SNR}",
+        "mode": "markdown"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend", 
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "refId": "A",
+          "schema": [
+            {
+              "name": "",
+              "type": "string"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "Parameters",
+      "type": "text"
+    },
+    {
+      "datasource": "Backend", 
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisGridShow": true,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "line": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 2,
+            "point": "auto",
+            "pointSize": {
+              "fixed": 6
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 2,
+      "options": {
+        "dims": {
+          "exclude": [
+            "MSE"
+          ],
+          "x": "Iteration"
+        },
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "mode": "xy",
+        "series": [
+          {
+            "pointColor": {},
+            "pointSize": {
+              "fixed": 7,
+              "max": 50,
+              "min": 1
+            },
+            "x": "Iteration",
+            "y": "Rate"
+          }
+        ],
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend", 
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "params": [
+            [
+              "BS",
+              "$BS"
+            ],
+            [
+              "UE",
+              "$UE"
+            ],
+            [
+              "Nr",
+              "$Nr"
+            ],
+            [
+              "Nt",
+              "$Nt"
+            ],
+            [
+              "SNR",
+              "$SNR"
+            ]
+          ],
+          "path": "/${sim}/iteration",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Iteration",
+              "type": "number"
+            },
+            {
+              "name": "Rate",
+              "type": "number"
+            },
+            {
+              "name": "MSE",
+              "type": "number"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "Achievable rate per iteration [bits/Hz/sec]",
+      "type": "xychart"
+    },
+    {
+      "datasource": "Backend", 
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisGridShow": true,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "line": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 2,
+            "point": "auto",
+            "pointSize": {
+              "fixed": 6
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 14,
+      "options": {
+        "dims": {
+          "exclude": [
+            "Rate"
+          ],
+          "x": "Iteration"
+        },
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "mode": "explicit",
+        "series": [
+          {
+            "pointColor": {
+              "fixed": "red"
+            },
+            "pointSize": {
+              "fixed": 7,
+              "max": 50,
+              "min": 1
+            },
+            "x": "Iteration",
+            "y": "MSE"
+          }
+        ],
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "body": "",
+          "datasource": "Backend", 
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "params": [
+            [
+              "BS",
+              "$BS"
+            ],
+            [
+              "UE",
+              "$UE"
+            ],
+            [
+              "Nr",
+              "$Nr"
+            ],
+            [
+              "Nt",
+              "$Nt"
+            ],
+            [
+              "SNR",
+              "$SNR"
+            ]
+          ],
+          "path": "/${sim}/iteration",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Iteration",
+              "type": "number"
+            },
+            {
+              "name": "Rate",
+              "type": "number"
+            },
+            {
+              "name": "MSE",
+              "type": "number"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "Mean squared error",
+      "type": "xychart"
+    }
+  ],
+  "refresh": false,
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "WMMSE",
+          "value": "WMMSE"
+        },
+        "datasource": "Backend", 
+        "definition": "simulation",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Simulation",
+        "multi": false,
+        "name": "sim",
+        "options": [],
+        "query": {
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": true,
+          "path": "/",
+          "schema": [
+            {
+              "name": "simulation",
+              "type": "string"
+            }
+          ],
+          "skipRows": 0
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "1",
+          "value": "1"
+        },
+        "datasource": "Backend",
+        "definition": "BS",
+        "hide": 0,
+        "includeAll": false,
+        "label": "BS",
+        "multi": false,
+        "name": "BS",
+        "options": [],
+        "query": {
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": true,
+          "path": "/$sim/iteration?info=BS",
+          "schema": [
+            {
+              "name": "BS",
+              "type": "string"
+            }
+          ],
+          "skipRows": 0
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "4",
+          "value": "4"
+        },
+        "datasource": "Backend", 
+        "definition": "UE",
+        "hide": 0,
+        "includeAll": false,
+        "label": "UE",
+        "multi": false,
+        "name": "UE",
+        "options": [],
+        "query": {
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": true,
+          "path": "/$sim/iteration?info=UE",
+          "schema": [
+            {
+              "name": "UE",
+              "type": "string"
+            }
+          ],
+          "skipRows": 0
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "2",
+          "value": "2"
+        },
+        "datasource": "Backend", 
+        "definition": "Nr",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Nr",
+        "multi": false,
+        "name": "Nr",
+        "options": [],
+        "query": {
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": true,
+          "path": "/$sim/iteration?info=Nr",
+          "schema": [
+            {
+              "name": "Nr",
+              "type": "string"
+            }
+          ],
+          "skipRows": 0
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "4",
+          "value": "4"
+        },
+        "datasource": "Backend",
+        "definition": "Nt",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Nt",
+        "multi": false,
+        "name": "Nt",
+        "options": [],
+        "query": {
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": true,
+          "path": "/$sim/iteration?info=Nt",
+          "schema": [
+            {
+              "name": "Nt",
+              "type": "string"
+            }
+          ],
+          "skipRows": 0
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "20",
+          "value": "20"
+        },
+        "datasource": "Backend",
+        "definition": "SNR",
+        "hide": 0,
+        "includeAll": false,
+        "label": "SNR",
+        "multi": false,
+        "name": "SNR",
+        "options": [],
+        "query": {
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": true,
+          "path": "/$sim/iteration?info=SNR",
+          "schema": [
+            {
+              "name": "SNR",
+              "type": "string"
+            }
+          ],
+          "skipRows": 0
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Simulation view (Basic)",
+  "uid": "basicsim",
+  "version": 7,
+  "weekStart": ""
+}
