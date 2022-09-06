@@ -49,3 +49,17 @@ RUN if [ ! -z "${GF_INSTALL_PLUGINS}" ]; then \
         fi \
     done \
 fi
+
+# Beamy settings
+ENV GF_PANELS_ENABLE_ALPHA=true
+ENV GF_AUTH_ANONYMOUS_ENABLED=true 
+ENV GF_AUTH_ORG_ROLE=Admin 
+ENV GF_AUTH_DISABLE_LOGIN_FORM=true
+ENV GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+
+ENV GF_PROVISIONING_DASHBOARDS="/etc/grafana/dashboards" 
+
+COPY ./provisioning /etc/grafana/provisioning 
+COPY ./dashboards /etc/grafana/dashboards 
+COPY ./provisioning/dashboards /usr/share/grafana/conf/provisioning/dashboards 
+COPY ./provisioning/datasources /usr/share/grafana/conf/provisioning/datasources 
