@@ -95,7 +95,7 @@ def rate(chan, prec, noise_pwr, cov=None, errm=None, rate_type="average-per-cell
 
     Keywoard Args:
         cov (matrix): Pre-calculated covariance matrix
-        errm (matrix): Pre-calculated MSE matrix 
+        errm (matrix): Pre-calculated MSE matrix
 
     Returns (array):
         User specific rates

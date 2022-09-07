@@ -26,4 +26,3 @@ elif args.path:
     subprocess.call(["python", args.path])
 else:
     print("No simulation given")
-
