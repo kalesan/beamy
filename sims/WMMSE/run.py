@@ -1,6 +1,5 @@
 import sys
 import os
-import logging
 
 # from multiprocessing import Process
 scriptdir = os.path.dirname(os.path.realpath(__file__))
@@ -9,20 +8,6 @@ sys.path.append(os.path.join(scriptdir, '..', '..', 'beamy'))
 
 from beamy.simulator import Simulator  # noqa: E402
 import precoder  # noqa: E402
-
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-
-handler = logging.StreamHandler()
-handler.setLevel(logging.DEBUG)
-
-formatter = logging.Formatter("%(levelname)s - %(module)s - %(message)s")
-handler.setFormatter(formatter)
-
-while len(logger.handlers) > 0:
-    logger.handlers.pop()
-
-logger.addHandler(handler)
 
 ####
 realizations = 25
@@ -33,7 +18,8 @@ def simulate(_rx, _tx, _K, _B, _SNR):
     sim = Simulator(precoder.PrecoderWMMSE(), 
                     bs=_B, users=_K, nr=_rx, nt=_tx,
                     realizations=realizations, biterations=biterations, 
-                    SNR=_SNR)
+                    SNR=_SNR, 
+                    verbose_level=int(os.environ.get("VERBOSE", 0)))
 
     sim.run()
 
