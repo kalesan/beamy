@@ -17,34 +17,32 @@ biterations = 150
 def simulate(_rx, _tx, _K, _B, _SNR):
     sim = Simulator(precoder.PrecoderWMMSE(precision=1e-8),
                     bs=_B, users=K, nr=_rx, nt=_tx,
-                    realizations=realizations, biterations=biterations, 
-                    SNR=_SNR, uplink=True, 
+                    realizations=realizations, biterations=biterations,
+                    SNR=_SNR, uplink=True,
                     verbose_level=int(os.environ.get("VERBOSE", 0)))
 
     sim.run()
 
     sim = Simulator(precoder.PrecoderWMMSE(precision=1e-8),
                     bs=_B, users=K, nr=_rx, nt=_tx,
-                    realizations=realizations, biterations=biterations, 
-                    SNR=_SNR, uplink=True, txrxiter=5, 
+                    realizations=realizations, biterations=biterations,
+                    SNR=_SNR, uplink=True, txrxiter=5,
                     verbose_level=int(os.environ.get("VERBOSE", 0)))
-
 
     sim.run()
 
     sim = Simulator(precoder.PrecoderWMMSE(precision=1e-8),
                     bs=_B, users=K, nr=_rx, nt=_tx,
-                    realizations=realizations, biterations=biterations, 
-                    SNR=_SNR, uplink=True, txrxiter=10, 
+                    realizations=realizations, biterations=biterations,
+                    SNR=_SNR, uplink=True, txrxiter=10,
                     verbose_level=int(os.environ.get("VERBOSE", 0)))
-
 
     sim.run()
 
     sim = Simulator(precoder.PrecoderSDP_MAC(),
                     bs=_B, users=K, nr=_rx, nt=_tx,
                     realizations=realizations, biterations=biterations,
-                    SNR=_SNR, uplink=True, 
+                    SNR=_SNR, uplink=True,
                     verbose_level=int(os.environ.get("VERBOSE", 0)))
     sim.run()
 

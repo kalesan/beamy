@@ -9,7 +9,7 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-from beamy import *
+import beamy
 
 
 class Precoder(object):
@@ -89,7 +89,7 @@ class PrecoderWMMSE(Precoder):
 
         pwr_lim = kwargs.get('pwr_lim', 1)
 
-        errm = utils.mse(chan, recv, prec_prev, noise_pwr)
+        errm = beamy.utils.mse(chan, recv, prec_prev, noise_pwr)
 
         weight = np.zeros((self.n_sk, self.n_sk, self.n_ue, self.n_bs),
                           dtype='complex')
@@ -97,8 +97,8 @@ class PrecoderWMMSE(Precoder):
         for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
             weight[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])
 
-        return utils.weighted_bisection(chan, recv, weight, pwr_lim,
-                                        threshold=self.precision)
+        return beamy.utils.weighted_bisection(chan, recv, weight, pwr_lim,
+                                              threshold=self.precision)
 
 
 class PrecoderSDP_MAC(Precoder):
@@ -122,7 +122,7 @@ class PrecoderSDP_MAC(Precoder):
         weights = np.zeros((self.n_sk, self.n_sk, self.n_ue, self.n_bs),
                            dtype='complex')
 
-        errm = utils.mse(chan, recv, prec_prev, noise_pwr)
+        errm = beamy.utils.mse(chan, recv, prec_prev, noise_pwr)
 
         for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
             weights[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])
@@ -315,7 +315,7 @@ class PrecoderSDP(Precoder):
         weights = np.zeros((self.n_sk, self.n_sk, self.n_ue, self.n_bs),
                            dtype='complex')
 
-        errm = utils.mse(chan, recv, prec_prev, noise_pwr)
+        errm = beamy.utils.mse(chan, recv, prec_prev, noise_pwr)
 
         for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
             weights[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])

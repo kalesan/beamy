@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from beamy import utils  
+from beamy import utils
 
 RANDOM_REALIZATIONS = 5
 

@@ -15,10 +15,10 @@ biterations = 50
 
 
 def simulate(_rx, _tx, _K, _B, _SNR):
-    sim = Simulator(precoder.PrecoderWMMSE(), 
+    sim = Simulator(precoder.PrecoderWMMSE(),
                     bs=_B, users=_K, nr=_rx, nt=_tx,
-                    realizations=realizations, biterations=biterations, 
-                    SNR=_SNR, 
+                    realizations=realizations, biterations=biterations,
+                    SNR=_SNR,
                     verbose_level=int(os.environ.get("VERBOSE", 0)))
 
     sim.run()
