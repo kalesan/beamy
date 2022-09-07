@@ -40,6 +40,7 @@ class Simulator(object):
             uplink (bool): Simulate uplink (default: False)
             rate_type (str): How to present achievable rate (default: "average-per-cell"). Supported types
                              "average-per-cell", "average-per-user", "sum-rate"
+            verbose_level (int): How verbose logging we want to show. Default (1)
         """
         self.Nr = kwargs.get('nr', [2])
         if np.isscalar(self.Nr):
@@ -86,6 +87,23 @@ class Simulator(object):
             self.prec = precoder.PrecoderGaussian()
         else:
             self.prec = prec
+
+        self.verbose_level = kwargs.get('verbose_level', 1)
+
+        if self.verbose_level > 0:
+            logger = logging.getLogger()
+            logger.setLevel(logging.DEBUG)
+
+            self.log_handler = logging.StreamHandler()
+            self.log_handler.setLevel(logging.DEBUG)
+
+            formatter = logging.Formatter("%(levelname)s - %(module)s - %(message)s")
+            self.log_handler.setFormatter(formatter)
+
+            while len(logger.handlers) > 0:
+                logger.handlers.pop()
+
+            logger.addHandler(self.log_handler)
 
         self.write_info_csv()
         
@@ -261,7 +279,6 @@ class Simulator(object):
         logger = logging.getLogger(__name__)
 
         simparams = [self.SNR, self.Nr, self.Nt, self.K, self.B]
-        print(simparams)
 
         first_result = True
 
