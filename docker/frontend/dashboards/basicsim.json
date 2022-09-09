@@ -62,8 +62,8 @@
       "id": 4,
       "options": {
         "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
+        "graphMode": "area",
+        "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -243,6 +243,685 @@
       "fieldConfig": {
         "defaults": {
           "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 10,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^SNR$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend",
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "params": [
+            [
+              "BS",
+              "$BS"
+            ],
+            [
+              "UE",
+              "$UE"
+            ],
+            [
+              "Nr",
+              "$Nr"
+            ],
+            [
+              "Nt",
+              "$Nt"
+            ],
+            [
+              "SNR",
+              "$SNR"
+            ]
+          ],
+          "path": "/${sim}/iteration",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Iteration",
+              "type": "number"
+            },
+            {
+              "name": "Rate",
+              "type": "number"
+            },
+            {
+              "name": "MSE",
+              "type": "number"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "SNR",
+      "type": "stat"
+    },
+    {
+      "datasource": "Backend",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 12,
+        "y": 0
+      },
+      "id": 19,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^BS$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend",
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "params": [
+            [
+              "BS",
+              "$BS"
+            ],
+            [
+              "UE",
+              "$UE"
+            ],
+            [
+              "Nr",
+              "$Nr"
+            ],
+            [
+              "Nt",
+              "$Nt"
+            ],
+            [
+              "SNR",
+              "$SNR"
+            ]
+          ],
+          "path": "/${sim}/iteration",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Iteration",
+              "type": "number"
+            },
+            {
+              "name": "Rate",
+              "type": "number"
+            },
+            {
+              "name": "MSE",
+              "type": "number"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "BS",
+      "type": "stat"
+    },
+    {
+      "datasource": "Backend",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 14,
+        "y": 0
+      },
+      "id": 20,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^UE$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend",
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "params": [
+            [
+              "BS",
+              "$BS"
+            ],
+            [
+              "UE",
+              "$UE"
+            ],
+            [
+              "Nr",
+              "$Nr"
+            ],
+            [
+              "Nt",
+              "$Nt"
+            ],
+            [
+              "SNR",
+              "$SNR"
+            ]
+          ],
+          "path": "/${sim}/iteration",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Iteration",
+              "type": "number"
+            },
+            {
+              "name": "Rate",
+              "type": "number"
+            },
+            {
+              "name": "MSE",
+              "type": "number"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "UE",
+      "type": "stat"
+    },
+    {
+      "datasource": "Backend",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 16,
+        "y": 0
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Nr$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend",
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "params": [
+            [
+              "BS",
+              "$BS"
+            ],
+            [
+              "UE",
+              "$UE"
+            ],
+            [
+              "Nr",
+              "$Nr"
+            ],
+            [
+              "Nt",
+              "$Nt"
+            ],
+            [
+              "SNR",
+              "$SNR"
+            ]
+          ],
+          "path": "/${sim}/iteration",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Iteration",
+              "type": "number"
+            },
+            {
+              "name": "Rate",
+              "type": "number"
+            },
+            {
+              "name": "MSE",
+              "type": "number"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "Nr",
+      "type": "stat"
+    },
+    {
+      "datasource": "Backend",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 18,
+        "y": 0
+      },
+      "id": 22,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Nt$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend",
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "params": [
+            [
+              "BS",
+              "$BS"
+            ],
+            [
+              "UE",
+              "$UE"
+            ],
+            [
+              "Nr",
+              "$Nr"
+            ],
+            [
+              "Nt",
+              "$Nt"
+            ],
+            [
+              "SNR",
+              "$SNR"
+            ]
+          ],
+          "path": "/${sim}/iteration",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Iteration",
+              "type": "number"
+            },
+            {
+              "name": "Rate",
+              "type": "number"
+            },
+            {
+              "name": "MSE",
+              "type": "number"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "Nt",
+      "type": "stat"
+    },
+    {
+      "datasource": "Backend",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 0,
+        "y": 3
+      },
+      "id": 18,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Rate$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend",
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "params": [
+            [
+              "BS",
+              "$BS"
+            ],
+            [
+              "UE",
+              "$UE"
+            ],
+            [
+              "Nr",
+              "$Nr"
+            ],
+            [
+              "Nt",
+              "$Nt"
+            ],
+            [
+              "SNR",
+              "$SNR"
+            ]
+          ],
+          "path": "/${sim}/iteration",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Iteration",
+              "type": "number"
+            },
+            {
+              "name": "Rate",
+              "type": "number"
+            },
+            {
+              "name": "MSE",
+              "type": "number"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "Achievable rate [bits/Hz/sec]",
+      "type": "stat"
+    },
+    {
+      "datasource": "Backend",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 4,
+        "y": 3
+      },
+      "id": 23,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^MSE$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.6",
+      "targets": [
+        {
+          "datasource": "Backend",
+          "decimalSeparator": ".",
+          "delimiter": ",",
+          "header": true,
+          "ignoreUnknown": false,
+          "params": [
+            [
+              "BS",
+              "$BS"
+            ],
+            [
+              "UE",
+              "$UE"
+            ],
+            [
+              "Nr",
+              "$Nr"
+            ],
+            [
+              "Nt",
+              "$Nt"
+            ],
+            [
+              "SNR",
+              "$SNR"
+            ]
+          ],
+          "path": "/${sim}/iteration",
+          "refId": "A",
+          "schema": [
+            {
+              "name": "Iteration",
+              "type": "number"
+            },
+            {
+              "name": "Rate",
+              "type": "number"
+            },
+            {
+              "name": "MSE",
+              "type": "number"
+            }
+          ],
+          "skipRows": 0
+        }
+      ],
+      "title": "Mean squared error (MSE)",
+      "type": "stat"
+    },
+    {
+      "datasource": "Backend",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
             "mode": "palette-classic"
           },
           "custom": {
@@ -289,9 +968,9 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 3
+        "y": 9
       },
-      "id": 2,
+      "id": 17,
       "options": {
         "dims": {
           "exclude": [
@@ -425,7 +1104,7 @@
         "h": 11,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 21
       },
       "id": 14,
       "options": {
@@ -523,8 +1202,8 @@
       {
         "current": {
           "selected": true,
-          "text": "WMMSE",
-          "value": "WMMSE"
+          "text": "SVD",
+          "value": "SVD"
         },
         "datasource": {
           "type": "marcusolsson-csv-datasource",
@@ -597,8 +1276,8 @@
       {
         "current": {
           "selected": false,
-          "text": "4",
-          "value": "4"
+          "text": "1",
+          "value": "1"
         },
         "datasource": {
           "type": "marcusolsson-csv-datasource",
@@ -633,7 +1312,7 @@
       },
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": "2",
           "value": "2"
         },
@@ -670,7 +1349,7 @@
       },
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": "4",
           "value": "4"
         },
@@ -707,9 +1386,9 @@
       },
       {
         "current": {
-          "selected": false,
-          "text": "25",
-          "value": "25"
+          "selected": true,
+          "text": "20",
+          "value": "20"
         },
         "datasource": {
           "type": "marcusolsson-csv-datasource",
