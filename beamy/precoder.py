@@ -16,7 +16,7 @@ class Precoder(object):
 
         self.precision = precision
 
-    def init(self, Nr, Nt, UE, BS, uplink=False):
+    def init(self, Nr, Nt, UE, BS, uplink=False, noise_pwr=1, power=1):
         (self.Nr, self.Nt, self.UE, self.BS) = (Nr, Nt, UE, BS)
 
         self.Nsk = min(self.Nt, self.Nr)
@@ -31,6 +31,9 @@ class Precoder(object):
             UE = self.UE
             self.UE = self.BS
             self.BS = UE
+
+        self.noise_pwr = noise_pwr
+        self.power = power
 
         # Initialize (reset) precoder state
         self.reset()
