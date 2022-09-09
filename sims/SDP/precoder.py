@@ -46,12 +46,12 @@ class PrecoderSDP(beamy.precoder.Precoder):
         return ret_array
 
     def mse_weights(self, chan, recv, prec_prev, noise_pwr):
-        weights = np.zeros((self.n_sk, self.n_sk, self.n_ue, self.n_bs),
+        weights = np.zeros((self.Nsk, self.Nsk, self.UE, self.BS),
                            dtype='complex')
 
         errm = beamy.utils.mse(chan, recv, prec_prev, noise_pwr)
 
-        for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
+        for (_ue, _bs) in itertools.product(range(self.UE), range(self.BS)):
             weights[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])
 
         return weights
@@ -64,15 +64,15 @@ class PrecoderSDP(beamy.precoder.Precoder):
         wcov = np.dot(np.dot(chan.conj().T, wrecv), chan)
 
         # Concatenated transmitters
-        prec = np.dot(np.linalg.pinv(wcov + lvl*np.eye(self.n_tx)),
+        prec = np.dot(np.linalg.pinv(wcov + lvl*np.eye(self.Nt)),
                       np.dot(np.dot(chan.conj().T, recv), np.squeeze(weights)))
 
-        return prec.reshape(self.n_tx, self.n_sk, self.n_ue, order='F')
+        return prec.reshape(self.Nt, self.Nsk, self.UE, order='F')
 
     def solve(self, chan, recv, weights, lvl, tol=1e-4, queue=None):
         # pylint: disable=R0914
 
-        (n_rx, n_tx, n_ue, n_sk) = (self.n_rx, self.n_tx, self.n_ue, self.n_sk)
+        (n_rx, n_tx, n_ue, n_sk) = (self.Nr, self.Nt, self.UE, self.Nsk)
 
         cov = np.dot(np.dot(chan, (1/lvl)*np.eye(n_tx)), chan.conj().T)
 
@@ -230,16 +230,16 @@ class PrecoderSDP(beamy.precoder.Precoder):
         weights = self.mse_weights(chan_glob, recv, prec, noise_pwr)
 
         # The new precoders
-        prec = np.zeros((self.n_tx, self.n_sk, self.n_ue, self.n_bs),
+        prec = np.zeros((self.Nt, self.Nsk, self.UE, self.BS),
                         dtype='complex')
 
         # Block diagonalize matrices
         recv = self.blkdiag(recv)
         weights = self.blkdiag(weights)
 
-        for _bs in range(self.n_bs):
+        for _bs in range(self.BS):
             # Composite channel
-            chan = np.dsplit(chan_glob[:, :, :, _bs], self.n_ue)
+            chan = np.dsplit(chan_glob[:, :, :, _bs], self.UE)
             chan = np.squeeze(np.vstack(chan))
 
             prec[:, :, :, _bs] = self.search(chan, recv[:, :, _bs],

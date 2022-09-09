@@ -16,28 +16,28 @@ class Precoder(object):
 
         self.precision = precision
 
-    def init(self, Nr, Nt, K, B, uplink=False):
-        (self.n_rx, self.n_tx, self.n_ue, self.n_bs) = (Nr, Nt, K, B)
+    def init(self, Nr, Nt, UE, BS, uplink=False):
+        (self.Nr, self.Nt, self.UE, self.BS) = (Nr, Nt, UE, BS)
 
-        self.n_sk = min(self.n_tx, self.n_rx)
+        self.Nsk = min(self.Nt, self.Nr)
 
         self.uplink = uplink
 
         if uplink:
-            n_tx = self.n_tx
-            self.n_tx = self.n_rx
-            self.n_rx = n_tx
+            Nt = self.Nt
+            self.Nt = self.Nr
+            self.Nr = Nt
 
-            n_ue = self.n_ue
-            self.n_ue = self.n_bs
-            self.n_bs = n_ue
+            UE = self.UE
+            self.UE = self.BS
+            self.BS = UE
 
         # Initialize (reset) precoder state
         self.reset()
 
     def normalize(self, prec, pwr_lim):
         """ Normalize the prec matrix to have per BS power constraint pwr_lim"""
-        for _bs in range(self.n_bs):
+        for _bs in range(self.BS):
             tmp = prec[:, :, :, _bs]
 
             prec[:, :, :, _bs] = tmp / np.sqrt((tmp[:]*tmp[:].conj()).sum())
@@ -65,8 +65,8 @@ class PrecoderGaussian(Precoder):
     def generate(self, *_args, **kwargs):
         """ Generate a Gaussian precoder"""
 
-        prec = np.random.randn(self.n_tx, self.n_sk, self.n_ue, self.n_bs) + \
-            np.random.randn(self.n_tx, self.n_sk, self.n_ue, self.n_bs)*1j
+        prec = np.random.randn(self.Nt, self.Nsk, self.UE, self.BS) + \
+            np.random.randn(self.Nt, self.Nsk, self.UE, self.BS)*1j
 
         return self.normalize(prec, kwargs.get('pwr_lim', 1))
 
@@ -86,10 +86,10 @@ class PrecoderWMMSE(Precoder):
 
         errm = beamy.utils.mse(chan, recv, prec_prev, noise_pwr)
 
-        weight = np.zeros((self.n_sk, self.n_sk, self.n_ue, self.n_bs),
+        weight = np.zeros((self.Nsk, self.Nsk, self.UE, self.BS),
                           dtype='complex')
 
-        for (_ue, _bs) in itertools.product(range(self.n_ue), range(self.n_bs)):
+        for (_ue, _bs) in itertools.product(range(self.UE), range(self.BS)):
             weight[:, :, _ue, _bs] = np.linalg.pinv(errm[:, :, _ue, _bs])
 
         return beamy.utils.weighted_bisection(chan, recv, weight, pwr_lim,
