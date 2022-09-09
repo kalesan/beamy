@@ -45,7 +45,7 @@ class Precoder(object):
 
         return prec
 
-    def generate(self, *_args, **kwargs):
+    def generate(self, *_, **kwargs):
         """ This method should be overriden by the actual precoder design."""
         pass
 
@@ -62,7 +62,7 @@ class PrecoderGaussian(Precoder):
     def __init__(self, **kwargs):
         super(PrecoderGaussian, self).__init__(**kwargs)
 
-    def generate(self, *_args, **kwargs):
+    def generate(self, *_, **kwargs):
         """ Generate a Gaussian precoder"""
 
         prec = np.random.randn(self.Nt, self.Nsk, self.UE, self.BS) + \
@@ -77,10 +77,8 @@ class PrecoderWMMSE(Precoder):
     def __init__(self, **kwargs):
         super(PrecoderWMMSE, self).__init__(**kwargs)
 
-    def generate(self, *args, **kwargs):
+    def generate(self, chan, recv, prec_prev, noise_pwr, **kwargs):
         """ Generate the WMMSE precoders. """
-
-        [chan, recv, prec_prev, noise_pwr] = [_a for _a in args]
 
         pwr_lim = kwargs.get('pwr_lim', 1)
 

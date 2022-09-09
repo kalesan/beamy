@@ -216,10 +216,8 @@ class PrecoderSDP(beamy.precoder.Precoder):
 
         return prec
 
-    def generate(self, *args, **kwargs):
+    def generate(self, chan_glob, recv, prec, noise_pwr, **kwargs):
         """ Generate the precoders. """
-
-        [chan_glob, recv, prec, noise_pwr] = [_a for _a in args]
 
         pwr_lim = kwargs.get('pwr_lim', 1)
 
