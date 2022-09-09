@@ -210,7 +210,7 @@ class Simulator(object):
             rate[ind] = (utils.rate(chan, iprec, noise_pwr,
                                     errm=errm)[:]).sum() / n_bs
 
-            pwr = np.real(iprec[:]*iprec[:].conj()).sum()
+            pwr = np.abs(iprec[:]*iprec[:].conj()).sum()
 
             logger.info("Rate: %.4f Power: %.2f%% (I: %f) ", rate[ind],
                         100*(pwr/(n_bs*self.pwr_lim)), rate[ind] - rate_prev)
@@ -281,10 +281,13 @@ class Simulator(object):
 
         first_result = True
 
-        for (SNR, Nr, Nt, K, B) in itertools.product(*simparams):
-            print(SNR)
+        for (SNR, Nr, Nt, UE, B) in itertools.product(*simparams):
+            print("SNR", SNR, "BS", B, "UE", UE, "Nr", Nr, "Nt", Nt)
 
-            self.prec.init(Nr, Nt, K, B, self.uplink)
+            noise_pwr = 10**-(SNR/10)
+
+            self.prec.init(Nr, Nt, UE, B, uplink=self.uplink,
+                           noise_pwr=noise_pwr, power=self.pwr_lim)
 
             stats = None
 
@@ -297,7 +300,7 @@ class Simulator(object):
                 logger.info("Realization %d/%d", rel+1,
                             self.iterations['channel'])
 
-                chan = self.chanmod.generate(Nr, Nt, K, B,
+                chan = self.chanmod.generate(Nr, Nt, UE, B,
                                              self.iterations['beamformer'])
 
                 # For uplink simulations transpose the channel model
@@ -316,7 +319,7 @@ class Simulator(object):
                     stats += stat_t
 
                 iter_res = pd.DataFrame(data={
-                        'B': B, 'K': K, 'Nr': Nr, 'Nt': Nt, 'SNR': SNR,
+                        'B': B, 'K': UE, 'Nr': Nr, 'Nt': Nt, 'SNR': SNR,
                         'Rate': stats['rate'], 'MSE': stats['mse']
                     }, index=[0])
 
@@ -331,7 +334,7 @@ class Simulator(object):
 
             rate_avg = stats['rate'] / self.iterations['channel']
             mse_avg = stats['mse'] / self.iterations['channel']
-            self.write_iteration_csv(SNR, Nr, Nt, K, B,
+            self.write_iteration_csv(SNR, Nr, Nt, UE, B,
                                      rate_avg, mse_avg,
                                      first_result=first_result)
 
